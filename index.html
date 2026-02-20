@@ -12,9 +12,9 @@
 
   <body>
     <main class="container">
-      <header>
+      <header class="pageHeader">
         <h1>Big G Steel LLC - Overhead Crane Installation Tolerance Checker</h1>
-        <p>
+        <p class="subtitle">
           Compare field measurements against CMAA 70 / CMAA 74 and TR-13 tolerance checks.
         </p>
       </header>
@@ -26,6 +26,7 @@
             Project name
             <input id="projectName" type="text" placeholder="Plant A - Runway Line 2">
           </label>
+
           <label>
             Spec profile
             <select id="profileSelect"></select>
@@ -35,15 +36,18 @@
 
       <section class="card">
         <h2>Column Layout &amp; Station Setup</h2>
+
         <div class="grid two-col">
           <label>
             Columns per side
             <input id="columnsPerSide" type="number" min="2" value="3">
           </label>
+
           <label>
             Measured station distance (ft)
             <input id="measuredStationDistance" type="number" min="1" value="10">
           </label>
+
           <label>
             Direction labels for side pair
             <select id="directionPair">
@@ -53,40 +57,56 @@
           </label>
         </div>
 
-        <button id="buildLayout" class="secondary" type="button">Build Column Layout</button>
+        <div class="actions">
+          <button id="buildLayout" class="secondary" type="button">Build Column Layout</button>
+        </div>
+
         <div id="layoutContainer" class="stack"></div>
 
-        <p class="subtle">
-          Enter designed and actual column-to-column distances for each side. The app uses
-          your measured station distance to generate station points starting at 0 ft between columns.
+        <p class="hint">
+          Enter designed and actual column-to-column distances for each side. The app uses your measured
+          station distance to generate station points starting at 0 ft between columns.
         </p>
       </section>
 
       <section class="card">
-        <h2>Measurements</h2>
-        <form id="measurementForm" class="grid two-col"></form>
-        <button id="runCheck" class="primary" type="button">Run Compliance Check</button>
+        <div class="cardHeader">
+          <h2>Measurements</h2>
+          <p class="subtitleSmall">One line per measurement for clean entry and review.</p>
+        </div>
+
+        <!-- KEY CHANGE: one-col forces one measurement per row -->
+        <form id="measurementForm" class="grid one-col"></form>
+
+        <div class="actions">
+          <button id="runCheck" class="primary" type="button">Run Compliance Check</button>
+        </div>
       </section>
 
       <section class="card">
         <h2>Results</h2>
+
         <div id="summary" class="summary">No check run yet.</div>
+
         <div class="actions">
           <button id="exportPdf" class="secondary" type="button">Export Results to PDF</button>
         </div>
 
-        <table id="resultTable" aria-label="Compliance results">
-          <thead>
-            <tr>
-              <th>Check</th>
-              <th>Measured</th>
-              <th>Allowed</th>
-              <th>Status</th>
-              <th>Reference</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
+        <!-- Wrap table for mobile scrolling -->
+        <div class="tableWrap">
+          <table id="resultTable" aria-label="Compliance results">
+            <thead>
+              <tr>
+                <th>Check</th>
+                <th>Measured</th>
+                <th>Allowed</th>
+                <th>Status</th>
+                <th>Reference</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
 
         <div id="suggestions" class="suggestions">
           <h3>Engineering Adjustment Suggestions</h3>
@@ -99,11 +119,14 @@
       <section class="card warning">
         <h2>Important</h2>
         <p>
-          This tool is intended as a field aid. Always validate limits against the
-          latest published CMAA No. 70, CMAA No. 74, and TR-13 documents plus project
-          specifications.
+          This tool is intended as a field aid. Always validate limits against the latest published
+          CMAA No. 70, CMAA No. 74, and TR-13 documents plus project specifications.
         </p>
       </section>
+
+      <footer class="footerNote">
+        <span class="muted">Pilot build. Verify results against the governing documents.</span>
+      </footer>
     </main>
 
     <script src="/TR-13-app/app.js"></script>
