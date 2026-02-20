@@ -1,46 +1,76 @@
-const CACHE_NAME = 'tr13-pwa-v2';
-const CORE_ASSETS = [
-  '/',
-  '/index.html',
-  '/styles.css',
-  '/app.js',
-  '/manifest.webmanifest',
-  '/icons/icon-192.png',
-  '/icons/icon-512.png'
+// sw.js — TR-13-app (GitHub Pages safe)
+
+const CACHE_NAME = "tr13-pwa-v1";
+
+// IMPORTANT: match your real filenames
+const ASSETS = [
+  "./",
+  "./index.html",
+  "./app.js",
+  "./style.css",
+  "./manifest.webmanifest",
 ];
 
-self.addEventListener('install', event => {
-  event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(CORE_ASSETS)));
-  self.skipWaiting();
-});
-
-self.addEventListener('activate', event => {
+self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.keys().then(keys =>
-      Promise.all(keys.filter(key => key !== CACHE_NAME).map(key => caches.delete(key))),
-    ),
+    (async () => {
+      const cache = await caches.open(CACHE_NAME);
+
+      // Cache assets one-by-one so one 404 doesn't kill the whole install
+      await Promise.all(
+        ASSETS.map(async (url) => {
+          try {
+            const resp = await fetch(url, { cache: "no-cache" });
+            if (!resp.ok) throw new Error(`${url} -> ${resp.status}`);
+            await cache.put(url, resp);
+          } catch (err) {
+            // Log but do not fail install
+            console.warn("SW cache skipped:", err);
+          }
+        })
+      );
+
+      self.skipWaiting();
+    })()
   );
-  self.clients.claim();
 });
 
-self.addEventListener('fetch', event => {
-  if (event.request.method !== 'GET') {
-    return;
-  }
+self.addEventListener("activate", (event) => {
+  event.waitUntil(
+    (async () => {
+      // remove old caches
+      const keys = await caches.keys();
+      await Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)));
+      self.clients.claim();
+    })()
+  );
+});
+
+self.addEventListener("fetch", (event) => {
+  const req = event.request;
+  // Only handle GET
+  if (req.method !== "GET") return;
 
   event.respondWith(
-    caches.match(event.request).then(cached => {
-      if (cached) {
-        return cached;
-      }
+    (async () => {
+      const cached = await caches.match(req);
+      if (cached) return cached;
 
-      return fetch(event.request)
-        .then(response => {
-          const responseClone = response.clone();
-          caches.open(CACHE_NAME).then(cache => cache.put(event.request, responseClone));
-          return response;
-        })
-        .catch(() => caches.match('/index.html'));
-    }),
+      try {
+        const fresh = await fetch(req);
+        // Optionally cache same-origin files
+        if (fresh.ok && new URL(req.url).origin === location.origin) {
+          const cache = await caches.open(CACHE_NAME);
+          cache.put(req, fresh.clone()).catch(() => {});
+        }
+        return fresh;
+      } catch {
+        // Offline fallback to cached index if navigation
+        if (req.mode === "navigate") {
+          return (await caches.match("./index.html")) || Response.error();
+        }
+        return Response.error();
+      }
+    })()
   );
 });
