@@ -14,16 +14,18 @@
   <main class="container">
 
     <header class="pageHeader">
-      <h1>Big G Steel LLC</h1>
-      <h1>Overhead Crane Installation Tolerance Checker</h1>
-      <h1>TR-13 / CMAA Field Check</h1>
+      <div class="titleStack">
+        <div class="titleLine">Big G Steel LLC</div>
+        <div class="titleLine">Overhead Crane Installation Tolerance Checker</div>
+        <div class="titleLine">TR-13 / CMAA Field Check</div>
+      </div>
     </header>
 
     <section class="card">
       <h2>Project Details</h2>
       <div class="grid two-col">
         <label>
-          Project Name
+          Project name
           <input id="projectName" type="text" placeholder="Plant A - Runway Line 2">
         </label>
 
@@ -102,12 +104,12 @@
 
   <script src="/TR-13-app/app.js"></script>
   <script>
+    // Optional PWA (leave ON only if you want caching during development)
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
         navigator.serviceWorker.register("/TR-13-app/sw.js").catch(console.error);
       });
     }
   </script>
-
 </body>
 </html>
