@@ -1,150 +1,113 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="theme-color" content="#146bb5">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#146bb5">
 
-    <link rel="manifest" href="/TR-13-app/manifest.webmanifest">
-    <title>Big G Steel LLC - TR-13 Crane Tolerance Checker</title>
-    <link rel="stylesheet" href="/TR-13-app/style.css">
-  </head>
+  <link rel="manifest" href="/TR-13-app/manifest.webmanifest">
+  <title>Big G Steel LLC - TR-13 Crane Tolerance Checker</title>
+  <link rel="stylesheet" href="/TR-13-app/style.css">
+</head>
 
-  <body>
-    <main class="container">
-      <header class="pageHeader">
-        <div class="brandBar">
-          <div class="brandMark" aria-hidden="true">BG</div>
-          <div class="brandText">
-            <div class="brandTitle">Big G Steel LLC</div>
-            <div class="brandSub">Overhead Crane Installation Tolerance Checker</div>
-          </div>
-        </div>
+<body>
+  <main class="container">
 
-        <h1 class="pageTitle">TR-13 / CMAA Field Check</h1>
-        <p class="subtitle">
-          Enter measurements, run compliance checks, and export results. Always validate limits
-          against the latest CMAA 70 / CMAA 74 and TR-13 documents plus project specifications.
-        </p>
-      </header>
+    <header class="pageHeader">
+      <h1>Big G Steel LLC</h1>
+      <h1>Overhead Crane Installation Tolerance Checker</h1>
+      <h1>TR-13 / CMAA Field Check</h1>
+    </header>
 
-      <section class="card">
-        <h2>Project Details</h2>
-        <div class="grid two-col">
-          <label>
-            Project name
-            <input id="projectName" type="text" placeholder="Plant A - Runway Line 2">
-          </label>
+    <section class="card">
+      <h2>Project Details</h2>
+      <div class="grid two-col">
+        <label>
+          Project Name
+          <input id="projectName" type="text" placeholder="Plant A - Runway Line 2">
+        </label>
 
-          <label>
-            Spec profile
-            <select id="profileSelect"></select>
-          </label>
-        </div>
-      </section>
+        <label>
+          Spec profile
+          <select id="profileSelect"></select>
+        </label>
+      </div>
+    </section>
 
-      <section class="card">
-        <h2>Column Layout &amp; Station Setup</h2>
+    <section class="card">
+      <h2>Column Layout &amp; Station Setup</h2>
 
-        <div class="grid two-col">
-          <label>
-            Columns per side
-            <input id="columnsPerSide" type="number" min="2" value="3">
-          </label>
+      <div class="grid two-col">
+        <label>
+          Columns per side
+          <input id="columnsPerSide" type="number" min="2" value="3">
+        </label>
 
-          <label>
-            Measured station distance (ft)
-            <input id="measuredStationDistance" type="number" min="1" value="10">
-          </label>
+        <label>
+          Measured station distance (ft)
+          <input id="measuredStationDistance" type="number" min="1" value="10">
+        </label>
 
-          <label>
-            Direction labels for side pair
-            <select id="directionPair">
-              <option value="North|South">North / South</option>
-              <option value="East|West">East / West</option>
-            </select>
-          </label>
-        </div>
+        <label>
+          Direction labels for side pair
+          <select id="directionPair">
+            <option value="North|South">North / South</option>
+            <option value="East|West">East / West</option>
+          </select>
+        </label>
+      </div>
 
-        <div class="actions">
-          <button id="buildLayout" class="secondary" type="button">Build Column Layout</button>
-        </div>
+      <div class="actions">
+        <button id="buildLayout" class="secondary" type="button">Build Column Layout</button>
+      </div>
 
-        <div id="layoutContainer" class="stack"></div>
+      <div id="layoutContainer" class="stack"></div>
+    </section>
 
-        <p class="hint">
-          Enter designed and actual column-to-column distances for each side. The app uses your measured
-          station distance to generate station points starting at 0 ft.
-        </p>
-      </section>
+    <section class="card">
+      <h2>Measurements</h2>
+      <form id="measurementForm" class="grid one-col"></form>
 
-      <section class="card">
-        <div class="cardHeader">
-          <h2>Measurements</h2>
-          <span class="pill">One per row</span>
-        </div>
+      <div class="actions">
+        <button id="runCheck" class="primary" type="button">Run Compliance Check</button>
+      </div>
+    </section>
 
-        <!-- One measurement per row -->
-        <form id="measurementForm" class="grid one-col"></form>
+    <section class="card">
+      <h2>Results</h2>
 
-        <div class="actions">
-          <button id="runCheck" class="primary" type="button">Run Compliance Check</button>
-        </div>
-      </section>
+      <div id="summary" class="summary">No check run yet.</div>
 
-      <section class="card">
-        <h2>Results</h2>
+      <div class="actions">
+        <button id="exportPdf" class="secondary" type="button">Export Results to PDF</button>
+      </div>
 
-        <div id="summary" class="summary">No check run yet.</div>
+      <div class="tableWrap">
+        <table id="resultTable">
+          <thead>
+            <tr>
+              <th>Check</th>
+              <th>Measured</th>
+              <th>Allowed</th>
+              <th>Status</th>
+              <th>Reference</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
 
-        <div class="actions">
-          <button id="exportPdf" class="secondary" type="button">Export Results to PDF</button>
-        </div>
+  </main>
 
-        <div class="tableWrap">
-          <table id="resultTable" aria-label="Compliance results">
-            <thead>
-              <tr>
-                <th>Check</th>
-                <th>Measured</th>
-                <th>Allowed</th>
-                <th>Status</th>
-                <th>Reference</th>
-              </tr>
-            </thead>
-            <tbody></tbody>
-          </table>
-        </div>
+  <script src="/TR-13-app/app.js"></script>
+  <script>
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker.register("/TR-13-app/sw.js").catch(console.error);
+      });
+    }
+  </script>
 
-        <div id="suggestions" class="suggestions">
-          <h3>Engineering Adjustment Suggestions</h3>
-          <ul id="suggestionList">
-            <li>Run a compliance check to generate adjustment guidance.</li>
-          </ul>
-        </div>
-      </section>
-
-      <section class="card warning">
-        <h2>Important</h2>
-        <p>
-          This tool is intended as a field aid. Always validate limits against the latest published
-          CMAA No. 70, CMAA No. 74, and TR-13 documents plus project specifications.
-        </p>
-      </section>
-
-      <footer class="footerNote">
-        <span>Big G Steel LLC — Internal pilot</span>
-      </footer>
-    </main>
-
-    <script src="/TR-13-app/app.js"></script>
-    <script>
-      // PWA: register service worker (GitHub Pages project-site safe path)
-      if ("serviceWorker" in navigator) {
-        window.addEventListener("load", () => {
-          navigator.serviceWorker.register("/TR-13-app/sw.js").catch(console.error);
-        });
-      }
-    </script>
-  </body>
+</body>
 </html>
