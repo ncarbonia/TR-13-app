@@ -1,15 +1,15 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#146bb5">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#146bb5" />
 
-  <link rel="manifest" href="./manifest.webmanifest">
-  <link rel="icon" href="data:,">
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="icon" href="data:," />
   <title>Big G Steel LLC - TR-13 Crane Tolerance Checker</title>
 
-  <link rel="stylesheet" href="./style.css">
+  <link rel="stylesheet" href="./style.css" />
 </head>
 
 <body>
@@ -29,7 +29,7 @@
       <div class="grid two-col">
         <label class="field">
           <span class="labelText">Project name</span>
-          <input id="projectName" type="text" placeholder="Plant A - Runway Line 2">
+          <input id="projectName" type="text" placeholder="Plant A - Runway Line 2" />
         </label>
 
         <label class="field">
@@ -45,12 +45,12 @@
       <div class="grid three-col">
         <label class="field">
           <span class="labelText">Columns per side</span>
-          <input id="columnsPerSide" type="number" min="2" value="3">
+          <input id="columnsPerSide" type="number" min="2" value="3" />
         </label>
 
         <label class="field">
           <span class="labelText">Measured station distance (ft)</span>
-          <input id="measuredStationDistance" type="number" min="1" value="10">
+          <input id="measuredStationDistance" type="number" min="1" value="10" />
         </label>
 
         <label class="field">
@@ -82,89 +82,100 @@
       </div>
     </section>
 
-    <!-- NEW: Survey Import + Charts -->
+    <!-- NEW: Station-by-station straightness & eccentricity inputs -->
     <section class="card">
       <h2>Straightness &amp; Eccentricity Survey (Station-by-Station)</h2>
 
       <p class="subtle">
-        Paste station-by-station offsets. This produces report-style plots like a rail survey.
-        Units: station in <strong>ft</strong>, offsets in <strong>inches</strong>.
+        Stations auto-populate. Enter <strong>horizontal offsets</strong> in inches at each station.
+        This produces straightness and eccentricity charts (survey-style) plus PASS/FAIL.
       </p>
 
-      <div class="grid two-col">
+      <div class="grid three-col">
         <label class="field">
-          <span class="labelText">Straightness tolerance window (± in)</span>
-          <input id="surveyStraightTol" type="number" step="any" value="0.375">
+          <span class="labelText">Runway length (ft)</span>
+          <input id="surveyRunwayLengthFt" type="number" step="any" value="200" />
         </label>
 
         <label class="field">
-          <span class="labelText">Max allowable rate of change (in per 20 ft)</span>
-          <input id="surveyRateTolPer20" type="number" step="any" value="0.25">
+          <span class="labelText">Station spacing (ft)</span>
+          <input id="surveyStationSpacingFt" type="number" step="any" value="10" />
+        </label>
+
+        <label class="field">
+          <span class="labelText">Start station (ft)</span>
+          <input id="surveyStartFt" type="number" step="any" value="0" />
+        </label>
+      </div>
+
+      <div class="grid three-col">
+        <label class="field">
+          <span class="labelText">Straightness tolerance window (± in)</span>
+          <input id="surveyStraightTol" type="number" step="any" value="0.375" />
+        </label>
+
+        <label class="field">
+          <span class="labelText">Max rate of change (in per 20 ft)</span>
+          <input id="surveyRateTolPer20" type="number" step="any" value="0.25" />
+        </label>
+
+        <label class="field">
+          <span class="labelText">Enable beam inputs (eccentricity)</span>
+          <select id="surveyUseBeam">
+            <option value="no" selected>No (straightness only)</option>
+            <option value="yes">Yes (straightness + eccentricity)</option>
+          </select>
         </label>
       </div>
 
       <details class="subtle" style="margin-top:10px;">
-        <summary><strong>Expected CSV format (copy/paste from Excel)</strong></summary>
-        <p style="margin:10px 0 0;">
-          Header row required. Use these column names (case-insensitive):
-        </p>
-        <pre style="white-space:pre-wrap; font-size:12px; margin-top:8px; padding:10px; border:1px solid #ddd; border-radius:10px;">
-StationFt,RailN,RailS,BeamN,BeamS
-0,0.05,-0.02,0.00,0.01
-10,0.10,-0.01,0.02,0.00
-20,0.12,0.03,0.03,0.02
-...
-        </pre>
+        <summary><strong>Eccentricity tolerance zones (optional)</strong></summary>
         <p style="margin-top:8px;">
-          If you don’t have BeamN/BeamS yet, you can still generate the straightness plots (eccentricity requires beam + rail).
+          One zone per line: <code>StartFt,EndFt,ToleranceIn</code>
         </p>
-      </details>
-
-      <label class="field" style="margin-top:12px;">
-        <span class="labelText">Paste CSV data</span>
-        <textarea id="surveyCsv" rows="10" placeholder="StationFt,RailN,RailS,BeamN,BeamS&#10;0,0.05,-0.02,0.00,0.01&#10;10,0.10,-0.01,0.02,0.00"></textarea>
-      </label>
-
-      <div class="actions">
-        <button id="parseSurvey" class="btn secondary" type="button">Parse &amp; Render Survey Charts</button>
-        <button id="clearSurvey" class="btn secondary" type="button">Clear Survey Data</button>
-      </div>
-
-      <div id="surveyStatus" class="summary">No survey data parsed yet.</div>
-
-      <div class="stack" style="gap:16px; margin-top:12px;">
-        <div style="overflow:auto; border:1px solid #e5e7eb; border-radius:12px; padding:12px;">
-          <svg id="straightnessSvg" width="1100" height="360" viewBox="0 0 1100 360" role="img" aria-label="Straightness plot"></svg>
-        </div>
-
-        <div style="overflow:auto; border:1px solid #e5e7eb; border-radius:12px; padding:12px;">
-          <svg id="eccentricitySvg" width="1100" height="360" viewBox="0 0 1100 360" role="img" aria-label="Eccentricity plot"></svg>
-        </div>
-
-        <details class="subtle">
-          <summary><strong>Eccentricity tolerance zones (optional)</strong></summary>
-          <p style="margin-top:8px;">
-            Paste zones as CSV: <code>StartFt,EndFt,ToleranceIn</code> (one per line). Example:
-          </p>
-          <pre style="white-space:pre-wrap; font-size:12px; margin-top:8px; padding:10px; border:1px solid #ddd; border-radius:10px;">
-0,300,0.630
-300,325,0.454
-325,465,0.765
-465,700,0.630
-          </pre>
-
-          <label class="field" style="margin-top:10px;">
-            <span class="labelText">Tolerance zones CSV</span>
-            <textarea id="eccZones" rows="5">0,300,0.630
+        <textarea id="eccZones" rows="5">0,300,0.630
 300,325,0.454
 325,465,0.765
 465,700,0.630</textarea>
-          </label>
-        </details>
+      </details>
+
+      <div class="actions">
+        <button id="buildSurveyStations" class="btn secondary" type="button">Build Stations</button>
+        <button id="evaluateSurvey" class="btn primary" type="button">Evaluate &amp; Render</button>
+      </div>
+
+      <div id="surveyStatus" class="summary">No survey table built yet.</div>
+
+      <div class="tableWrap" style="margin-top:12px;">
+        <table id="surveyTable" aria-label="Survey station inputs">
+          <thead>
+            <tr>
+              <th>Station (ft)</th>
+              <th>Rail N (in)</th>
+              <th>Rail S (in)</th>
+              <th class="beamCol">Beam N (in)</th>
+              <th class="beamCol">Beam S (in)</th>
+              <th>N Status</th>
+              <th>S Status</th>
+              <th>Rate N</th>
+              <th>Rate S</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <div class="stack" style="gap:16px; margin-top:12px;">
+        <div class="svgFrame">
+          <svg id="straightnessSvg" width="1100" height="360" viewBox="0 0 1100 360" role="img" aria-label="Straightness plot"></svg>
+        </div>
+
+        <div class="svgFrame">
+          <svg id="eccentricitySvg" width="1100" height="360" viewBox="0 0 1100 360" role="img" aria-label="Eccentricity plot"></svg>
+        </div>
       </div>
     </section>
 
-    <!-- Existing Results -->
     <section class="card">
       <h2>Results</h2>
 
