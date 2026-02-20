@@ -13,9 +13,18 @@
   <body>
     <main class="container">
       <header class="pageHeader">
-        <h1>Big G Steel LLC - Overhead Crane Installation Tolerance Checker</h1>
+        <div class="brandBar">
+          <div class="brandMark" aria-hidden="true">BG</div>
+          <div class="brandText">
+            <div class="brandTitle">Big G Steel LLC</div>
+            <div class="brandSub">Overhead Crane Installation Tolerance Checker</div>
+          </div>
+        </div>
+
+        <h1 class="pageTitle">TR-13 / CMAA Field Check</h1>
         <p class="subtitle">
-          Compare field measurements against CMAA 70 / CMAA 74 and TR-13 tolerance checks.
+          Enter measurements, run compliance checks, and export results. Always validate limits
+          against the latest CMAA 70 / CMAA 74 and TR-13 documents plus project specifications.
         </p>
       </header>
 
@@ -65,17 +74,17 @@
 
         <p class="hint">
           Enter designed and actual column-to-column distances for each side. The app uses your measured
-          station distance to generate station points starting at 0 ft between columns.
+          station distance to generate station points starting at 0 ft.
         </p>
       </section>
 
       <section class="card">
         <div class="cardHeader">
           <h2>Measurements</h2>
-          <p class="subtitleSmall">One line per measurement for clean entry and review.</p>
+          <span class="pill">One per row</span>
         </div>
 
-        <!-- KEY CHANGE: one-col forces one measurement per row -->
+        <!-- One measurement per row -->
         <form id="measurementForm" class="grid one-col"></form>
 
         <div class="actions">
@@ -92,7 +101,6 @@
           <button id="exportPdf" class="secondary" type="button">Export Results to PDF</button>
         </div>
 
-        <!-- Wrap table for mobile scrolling -->
         <div class="tableWrap">
           <table id="resultTable" aria-label="Compliance results">
             <thead>
@@ -125,7 +133,7 @@
       </section>
 
       <footer class="footerNote">
-        <span class="muted">Pilot build. Verify results against the governing documents.</span>
+        <span>Big G Steel LLC — Internal pilot</span>
       </footer>
     </main>
 
