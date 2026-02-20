@@ -1,0 +1,149 @@
+:root {
+  color-scheme: light;
+  --bg: #f4f6f8;
+  --card: #ffffff;
+  --text: #111827;
+  --muted: #6b7280;
+  --ok: #0f766e;
+  --fail: #b91c1c;
+  --accent: #146bb5;
+}
+
+* {
+  box-sizing: border-box;
+  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+}
+
+body {
+  margin: 0;
+  color: var(--text);
+  background: var(--bg);
+}
+
+.container {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 1.25rem;
+}
+
+.card {
+  background: var(--card);
+  border-radius: 10px;
+  margin: 0.9rem 0;
+  padding: 1rem;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+}
+
+.grid {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.two-col {
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.stack {
+  margin-top: 1rem;
+  display: grid;
+  gap: 1rem;
+}
+
+fieldset {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 0.8rem;
+}
+
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.95rem;
+}
+
+input,
+select,
+button {
+  padding: 0.6rem;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 0.95rem;
+}
+
+.primary {
+  margin-top: 1rem;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+}
+
+.secondary {
+  margin-top: 1rem;
+  background: #eef2ff;
+  color: #1e3a8a;
+  border-color: #bfdbfe;
+}
+
+.subtle {
+  color: var(--muted);
+  margin: 0.7rem 0 0;
+}
+
+.summary {
+  padding: 0.8rem;
+  border: 1px dashed #cbd5e1;
+  border-radius: 8px;
+  margin-bottom: 0.7rem;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th,
+td {
+  border-bottom: 1px solid #e5e7eb;
+  text-align: left;
+  padding: 0.55rem;
+  font-size: 0.9rem;
+}
+
+.status {
+  font-weight: 700;
+}
+
+.pass {
+  color: var(--ok);
+}
+
+.fail {
+  color: var(--fail);
+}
+
+.warning {
+  border-left: 4px solid #f59e0b;
+}
+
+.actions {
+  margin-bottom: 0.75rem;
+}
+
+.suggestions {
+  margin-top: 1rem;
+  border: 1px solid #dbeafe;
+  background: #f8fbff;
+  border-radius: 8px;
+  padding: 0.8rem;
+}
+
+.suggestions h3 {
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+}
+
+.suggestions ul {
+  margin: 0;
+  padding-left: 1.2rem;
+}
