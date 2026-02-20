@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#146bb5">
 
-    <link rel="manifest" href="./manifest.webmanifest">
+    <link rel="manifest" href="/TR-13-app/manifest.webmanifest">
     <title>Big G Steel LLC - TR-13 Crane Tolerance Checker</title>
-    <link rel="stylesheet" href="./styles.css">
+    <link rel="stylesheet" href="/TR-13-app/styles.css">
   </head>
 
   <body>
@@ -106,12 +106,12 @@
       </section>
     </main>
 
-    <script src="./app.js"></script>
+    <script src="/TR-13-app/app.js"></script>
     <script>
-      // PWA: register service worker (GitHub Pages-safe path)
+      // PWA: register service worker (GitHub Pages project-site safe path)
       if ("serviceWorker" in navigator) {
         window.addEventListener("load", () => {
-          navigator.serviceWorker.register("./sw.js").catch(console.error);
+          navigator.serviceWorker.register("/TR-13-app/sw.js").catch(console.error);
         });
       }
     </script>
