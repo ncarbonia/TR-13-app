@@ -13,26 +13,27 @@
 </head>
 
 <body>
-  <main class="container">
+  <header class="pageHeader">
+    <div class="titleStack">
+      <div class="titleLine">Big G Steel LLC</div>
+      <div class="titleLine">Overhead Crane Installation Tolerance Checker</div>
+      <div class="titleLine">TR-13 / CMAA Field Check</div>
+    </div>
+  </header>
 
-    <header class="pageHeader">
-      <div class="titleStack">
-        <div class="titleLine">Big G Steel LLC</div>
-        <div class="titleLine">Overhead Crane Installation Tolerance Checker</div>
-        <div class="titleLine">TR-13 / CMAA Field Check</div>
-      </div>
-    </header>
+  <main class="container">
 
     <section class="card">
       <h2>Project Details</h2>
+
       <div class="grid two-col">
-        <label>
-          Project name
+        <label class="field">
+          <span class="labelText">Project name</span>
           <input id="projectName" type="text" placeholder="Plant A - Runway Line 2">
         </label>
 
-        <label>
-          Spec profile
+        <label class="field">
+          <span class="labelText">Spec profile</span>
           <select id="profileSelect"></select>
         </label>
       </div>
@@ -41,19 +42,19 @@
     <section class="card">
       <h2>Column Layout &amp; Station Setup</h2>
 
-      <div class="grid two-col">
-        <label>
-          Columns per side
+      <div class="grid three-col">
+        <label class="field">
+          <span class="labelText">Columns per side</span>
           <input id="columnsPerSide" type="number" min="2" value="3">
         </label>
 
-        <label>
-          Measured station distance (ft)
+        <label class="field">
+          <span class="labelText">Measured station distance (ft)</span>
           <input id="measuredStationDistance" type="number" min="1" value="10">
         </label>
 
-        <label>
-          Direction labels for side pair
+        <label class="field">
+          <span class="labelText">Direction labels for side pair</span>
           <select id="directionPair">
             <option value="North|South">North / South</option>
             <option value="East|West">East / West</option>
@@ -62,18 +63,22 @@
       </div>
 
       <div class="actions">
-        <button id="buildLayout" class="secondary" type="button">Build Column Layout</button>
+        <button id="buildLayout" class="btn secondary" type="button">Build Column Layout</button>
       </div>
 
       <div id="layoutContainer" class="stack"></div>
+
+      <p class="subtle">
+        Enter designed and actual column-to-column distances. The app uses measured station distance to generate station points.
+      </p>
     </section>
 
     <section class="card">
       <h2>Measurements</h2>
-      <form id="measurementForm" class="grid one-col"></form>
+      <form id="measurementForm" class="formList"></form>
 
       <div class="actions">
-        <button id="runCheck" class="primary" type="button">Run Compliance Check</button>
+        <button id="runCheck" class="btn primary" type="button">Run Compliance Check</button>
       </div>
     </section>
 
@@ -82,12 +87,12 @@
 
       <div id="summary" class="summary">No check run yet.</div>
 
-      <div class="actions">
-        <button id="exportPdf" class="secondary" type="button">Export Results to PDF</button>
+      <div class="actions split">
+        <button id="exportPdf" class="btn secondary" type="button">Export Results to PDF</button>
       </div>
 
       <div class="tableWrap">
-        <table id="resultTable">
+        <table id="resultTable" aria-label="Compliance results">
           <thead>
             <tr>
               <th>Check</th>
@@ -100,17 +105,28 @@
           <tbody></tbody>
         </table>
       </div>
+
+      <div id="suggestions" class="suggestions">
+        <h3>Engineering Adjustment Suggestions</h3>
+        <ul id="suggestionList">
+          <li>Run a compliance check to generate adjustment guidance.</li>
+        </ul>
+      </div>
     </section>
+
+    <footer class="footnote">
+      <strong>Important:</strong> Field aid only. Validate limits against the latest CMAA 70 / 74, TR-13, and project specs.
+    </footer>
 
   </main>
 
-  <script src="/TR-13-app/app.js"></script>
- <script>
-  if ("serviceWorker" in navigator) {
-    window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./sw.js").catch(console.error);
-    });
-  }
-</script>
+  <script src="./app.js"></script>
+  <script>
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker.register("./sw.js").catch(console.error);
+      });
+    }
+  </script>
 </body>
 </html>
