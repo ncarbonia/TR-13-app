@@ -1,4 +1,11 @@
-/* app.js — Big G Steel LLC TR-13 / CMAA field check */
+/* app.js — Big G Steel LLC TR-13 / CMAA field check
+   Updated to:
+   - Treat "North-to-South span measurements" as CROSS-LEVEL (vertical elevation difference TOP OF RAIL to TOP OF RAIL)
+   - Render a markup-style RUNWAY DIAGRAM (SVG) with station values + fail highlighting + correction callouts
+   - Embed the diagram into the Print/PDF popup export (no external libs required)
+*/
+
+/* ---------------- Profiles ---------------- */
 
 const profiles = {
   "CMAA 70 / 74 + TR-13 (field defaults)": {
@@ -39,7 +46,7 @@ const profiles = {
   },
 };
 
-/* ---------- DOM lookups (guarded) ---------- */
+/* ---------------- DOM lookups (guarded) ---------------- */
 
 const profileSelect = document.getElementById("profileSelect");
 const form = document.getElementById("measurementForm");
@@ -57,9 +64,16 @@ const suggestions = document.getElementById("suggestions"); // optional
 const suggestionList = document.getElementById("suggestionList"); // optional
 const exportPdfBtn = document.getElementById("exportPdf");
 
-let latestRows = [];
+// NEW (optional) diagram UI — add these IDs in your HTML if you want on-page rendering:
+// <button id="renderDiagram">Render Diagram</button>
+// <svg id="runwaySvg" ...></svg>
+const renderDiagramBtn = document.getElementById("renderDiagram"); // optional
+const runwaySvg = document.getElementById("runwaySvg"); // optional
 
-// If any of these are missing, the app can’t function correctly.
+let latestRows = [];
+let latestDiagramSvgString = ""; // stored for export popup inclusion
+
+// Required for core app (diagram controls are optional)
 const REQUIRED = [
   ["profileSelect", profileSelect],
   ["measurementForm", form],
@@ -88,7 +102,7 @@ function assertRequiredDom() {
   return true;
 }
 
-/* ---------- Profiles / base form ---------- */
+/* ---------------- Profiles / base form ---------------- */
 
 function buildProfileOptions() {
   profileSelect.innerHTML = "";
@@ -118,13 +132,11 @@ function renderForm() {
   });
 }
 
-/* ---------- Layout generation ---------- */
+/* ---------------- Layout generation ---------------- */
 
 function stationOffsets(designDistanceFt, stationDistanceFt) {
   const offsets = [];
-  for (let offset = 0; offset < designDistanceFt; offset += stationDistanceFt) {
-    offsets.push(offset);
-  }
+  for (let offset = 0; offset < designDistanceFt; offset += stationDistanceFt) offsets.push(offset);
   return offsets;
 }
 
@@ -175,7 +187,7 @@ function buildLayout() {
   const sideMeasurements = document.createElement("fieldset");
   sideMeasurements.className = "grid";
   sideMeasurements.innerHTML =
-    "<legend>Side elevation measurements from Baseline (start at 0 ft, then measured station distance)</legend>";
+    "<legend>Side elevation measurements from Baseline (TOP OF RAIL) — stations start at 0 ft, then measured station distance</legend>";
 
   sides.forEach((side) => {
     for (let segment = 1; segment < columns; segment += 1) {
@@ -193,10 +205,10 @@ function buildLayout() {
   });
   layoutContainer.append(sideMeasurements);
 
-  // Cross-level (span) measurements between sides
+  // Cross-level measurements between sides (THIS IS NOT SPAN/GAUGE)
   const crossLevelMeasurements = document.createElement("fieldset");
   crossLevelMeasurements.className = "grid";
-  crossLevelMeasurements.innerHTML = `<legend>${sides[0].label} to ${sides[1].label} span measurements (start at 0 ft, then measured station distance)</legend>`;
+  crossLevelMeasurements.innerHTML = `<legend>${sides[0].label} to ${sides[1].label} CROSS-LEVEL measurements (TOP OF RAIL to TOP OF RAIL) — stations start at 0 ft, then measured station distance</legend>`;
 
   for (let segment = 1; segment < columns; segment += 1) {
     const sideADesignDistance = Number(
@@ -209,7 +221,7 @@ function buildLayout() {
     stationOffsets(Math.min(sideADesignDistance, sideBDesignDistance), measuredStationDistance).forEach(
       (offset) => {
         const label = document.createElement("label");
-        label.innerHTML = `${sides[0].label}${segment} to ${sides[1].label}${segment} span measurement at ${offset} ft station (in)
+        label.innerHTML = `${sides[0].label}${segment} to ${sides[1].label}${segment} cross-level at ${offset} ft station (in)
           <input type="number" step="any" id="cross_segment_${segment}_station_${offset}" value="0" />`;
         crossLevelMeasurements.append(label);
       }
@@ -230,16 +242,16 @@ function buildLayout() {
       <input type="number" step="any" min="0" id="baselineTol" value="0.125" />
     </label>
     <label>
-      North-to-South / East-to-West span tolerance (in)
+      Cross-level tolerance (TOP OF RAIL to TOP OF RAIL) (in)
       <input type="number" step="any" min="0" id="crossLevelTol" value="0.375" />
     </label>`;
   layoutContainer.append(tolerances);
 
   summary.textContent =
-    "Layout built. Enter distances and elevations, then run the compliance check.";
+    "Layout built. Enter distances/elevations/cross-level, then run the compliance check.";
 }
 
-/* ---------- Core evaluation ---------- */
+/* ---------------- Core evaluation ---------------- */
 
 function collectValues(check) {
   return check.inputs.reduce((acc, input) => {
@@ -273,7 +285,7 @@ function evaluateElevationRows() {
         measuredText: `${distanceDeviationIn.toFixed(3)} in deviation`,
         allowedText: `≤ ${columnDistanceTol.toFixed(3)} in`,
         pass: distanceDeviationIn <= columnDistanceTol,
-        reference: "TR-13 column line distance / vertical straightness verification",
+        reference: "TR-13 column line distance / verification",
       });
 
       const offsets = stationOffsets(designDistance, measuredStationDistance);
@@ -287,13 +299,13 @@ function evaluateElevationRows() {
           measuredText: `${elevationFromBaseline.toFixed(3)} in from baseline`,
           allowedText: `≤ ${baselineTol.toFixed(3)} in`,
           pass: elevationFromBaseline <= baselineTol,
-          reference: "TR-13 baseline elevation check",
+          reference: "TR-13 baseline elevation check (TOP OF RAIL)",
         });
       });
     }
   });
 
-  // Cross-level checks
+  // Cross-level checks (TOP OF RAIL to TOP OF RAIL)
   for (let segment = 1; segment < columns; segment += 1) {
     const sideADesignDistance = Number(document.getElementById(`sideA_design_distance_${segment}`)?.value ?? 0);
     const sideBDesignDistance = Number(document.getElementById(`sideB_design_distance_${segment}`)?.value ?? 0);
@@ -306,11 +318,11 @@ function evaluateElevationRows() {
       );
 
       rows.push({
-        check: `${sides[0].label}${segment} to ${sides[1].label}${segment} span at ${offset} ft station`,
-        measuredText: `${crossLevelValue.toFixed(3)} in span measurement`,
+        check: `${sides[0].label}${segment} to ${sides[1].label}${segment} cross-level at ${offset} ft station`,
+        measuredText: `${crossLevelValue.toFixed(3)} in cross-level`,
         allowedText: `≤ ${crossLevelTol.toFixed(3)} in`,
         pass: crossLevelValue <= crossLevelTol,
-        reference: "TR-13 cross-level tolerance",
+        reference: "TR-13 cross-level tolerance (TOP OF RAIL to TOP OF RAIL)",
       });
     });
   }
@@ -318,7 +330,7 @@ function evaluateElevationRows() {
   return rows;
 }
 
-/* ---------- Suggestions (safe if panel missing) ---------- */
+/* ---------------- Suggestions ---------------- */
 
 function suggestionForRow(row) {
   const check = row.check.toLowerCase();
@@ -329,8 +341,8 @@ function suggestionForRow(row) {
   if (check.includes("baseline check")) {
     return "Adjust rail seat elevation with shim packs/grout and re-shoot baseline elevations at the affected stations.";
   }
-  if (check.includes("span at")) {
-    return "Correct cross-level by balancing opposite-side elevation points and confirm with repeat station measurements from the same datum.";
+  if (check.includes("cross-level")) {
+    return "Correct cross-level by raising the low side or lowering the high side at the affected station(s). Re-check from the same datum on TOP OF RAIL.";
   }
   if (check.includes("span deviation")) {
     return "Reconfirm runway gauge control lines and shift runway members to restore design span within tolerance.";
@@ -343,7 +355,6 @@ function suggestionForRow(row) {
 }
 
 function renderSuggestions(rows) {
-  // If suggestions UI isn’t present, do nothing (don’t crash).
   if (!suggestionList) return;
 
   const failures = rows.filter((row) => !row.pass);
@@ -357,13 +368,232 @@ function renderSuggestions(rows) {
     .join("");
 }
 
-/* ---------- PDF export ---------- */
+/* ---------------- Diagram (SVG) generation ---------------- */
+
+function nearestFractionStringInches(valueIn) {
+  const abs = Math.abs(Number(valueIn) || 0);
+  const fracMap = [
+    { val: 0.0, s: `0"` },
+    { val: 0.0625, s: `1/16"` },
+    { val: 0.125, s: `1/8"` },
+    { val: 0.1875, s: `3/16"` },
+    { val: 0.25, s: `1/4"` },
+    { val: 0.3125, s: `5/16"` },
+    { val: 0.375, s: `3/8"` },
+    { val: 0.4375, s: `7/16"` },
+    { val: 0.5, s: `1/2"` },
+    { val: 0.625, s: `5/8"` },
+    { val: 0.75, s: `3/4"` },
+    { val: 0.875, s: `7/8"` },
+    { val: 1.0, s: `1"` },
+    { val: 1.125, s: `1 1/8"` },
+    { val: 1.25, s: `1 1/4"` },
+    { val: 1.5, s: `1 1/2"` },
+    { val: 2.0, s: `2"` },
+    { val: 3.0, s: `3"` },
+  ];
+  let best = fracMap[0];
+  for (const f of fracMap) {
+    if (Math.abs(f.val - abs) < Math.abs(best.val - abs)) best = f;
+  }
+  return best.s;
+}
+
+/**
+ * Collect cross-level station data across all segments and flatten into
+ * a single station line (0,10,20...) for drawing.
+ *
+ * For the diagram, we typically want ONE line of stations.
+ * If you have multiple segments, we concatenate by station along the runway:
+ *   Segment1: 0..(L1)
+ *   Segment2: 0..(L2) appended with +L1, etc.
+ *
+ * This produces global stations and cross-level values for each station.
+ */
+function collectCrossLevelSeries() {
+  const sides = sideConfig();
+  const columns = Number(columnsPerSideInput.value);
+  const measuredStationDistance = Number(measuredStationDistanceInput.value);
+
+  const points = []; // { stationFt, valueIn, segment, localOffsetFt }
+  let cumulativeFt = 0;
+
+  for (let segment = 1; segment < columns; segment += 1) {
+    const sideADesignDistance = Number(document.getElementById(`sideA_design_distance_${segment}`)?.value ?? 0);
+    const sideBDesignDistance = Number(document.getElementById(`sideB_design_distance_${segment}`)?.value ?? 0);
+    const segmentLenFt = Math.min(sideADesignDistance, sideBDesignDistance);
+
+    const offsets = stationOffsets(segmentLenFt, measuredStationDistance);
+    offsets.forEach((offsetFt) => {
+      const v = Number(document.getElementById(`cross_segment_${segment}_station_${offsetFt}`)?.value ?? 0);
+      points.push({
+        stationFt: cumulativeFt + offsetFt,
+        valueIn: v,
+        segment,
+        localOffsetFt: offsetFt,
+        pairLabel: `${sides[0].label}${segment}–${sides[1].label}${segment}`,
+      });
+    });
+
+    cumulativeFt += segmentLenFt;
+  }
+
+  // If no data, return empty
+  return points;
+}
+
+/**
+ * Build an SVG string resembling a markup drawing:
+ * - Two runway lines
+ * - Station markers
+ * - Vertical dimension arrows
+ * - Value boxes (red when fail)
+ * - Bracket label for failing range
+ */
+function buildRunwayDiagramSvgString() {
+  const sides = sideConfig();
+  const tol = Number(document.getElementById("crossLevelTol")?.value ?? 0.375);
+
+  const pts = collectCrossLevelSeries();
+  if (!pts.length) {
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="420" viewBox="0 0 1100 420">
+      <rect x="0" y="0" width="1100" height="420" fill="white"/>
+      <text x="40" y="60" font-family="Arial" font-size="18" font-weight="700">No cross-level data available to draw.</text>
+    </svg>`;
+  }
+
+  const W = 1100, H = 420;
+  const marginL = 110, marginR = 50;
+  const railTopY = 90, railBotY = 300;
+  const stationBubbleY = railTopY - 20;
+
+  const minFt = Math.min(...pts.map(p => p.stationFt));
+  const maxFt = Math.max(...pts.map(p => p.stationFt));
+  const spanFt = Math.max(1, maxFt - minFt);
+
+  const plotW = W - marginL - marginR;
+  const xForFt = (ft) => marginL + ((ft - minFt) / spanFt) * plotW;
+
+  const fails = pts.map(p => Math.abs(p.valueIn) > tol);
+  const firstFailIdx = fails.indexOf(true);
+  const lastFailIdx = fails.lastIndexOf(true);
+
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));
+
+  // Correction text rule (simple, practical):
+  // - If out of tolerance, show required adjustment to get back to tolerance band:
+  //   required = max(0, |value| - tol)
+  const correctionText = (v) => {
+    const req = Math.max(0, Math.abs(v) - tol);
+    return req > 0 ? `V+${nearestFractionStringInches(req)}` : "";
+  };
+
+  let svg = `
+  <svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
+    <defs>
+      <marker id="arr" markerWidth="10" markerHeight="10" refX="5" refY="5" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" />
+      </marker>
+    </defs>
+
+    <rect x="0" y="0" width="${W}" height="${H}" fill="white"/>
+
+    <!-- Side labels -->
+    <g>
+      <circle cx="55" cy="${railTopY+7}" r="18" fill="white" stroke="black" stroke-width="2"/>
+      <text x="55" y="${railTopY+12}" text-anchor="middle" font-family="Arial" font-size="16" font-weight="700">${esc(sides[0].label[0] || "A")}</text>
+
+      <circle cx="55" cy="${railBotY+7}" r="18" fill="white" stroke="black" stroke-width="2"/>
+      <text x="55" y="${railBotY+12}" text-anchor="middle" font-family="Arial" font-size="16" font-weight="700">${esc(sides[1].label[0] || "B")}</text>
+    </g>
+
+    <!-- Runway beams/rails -->
+    <rect x="${marginL}" y="${railTopY}" width="${plotW}" height="14" fill="white" stroke="black" stroke-width="2"/>
+    <rect x="${marginL}" y="${railBotY}" width="${plotW}" height="14" fill="white" stroke="black" stroke-width="2"/>
+
+    <!-- Title -->
+    <text x="${marginL}" y="32" font-family="Arial" font-size="18" font-weight="800">CROSS-LEVEL MARKUP (TOP OF RAIL to TOP OF RAIL)</text>
+    <text x="${marginL}" y="54" font-family="Arial" font-size="12">Tolerance: ≤ ${tol.toFixed(3)} in (TR-13)</text>
+  `;
+
+  // Bracket for failing range
+  if (firstFailIdx !== -1) {
+    const x1 = xForFt(pts[firstFailIdx].stationFt);
+    const x2 = xForFt(pts[lastFailIdx].stationFt);
+    svg += `
+      <path d="M${x1} 70 L${x1} 88 M${x1} 70 L${x2} 70 M${x2} 70 L${x2} 88"
+            fill="none" stroke="red" stroke-width="3"/>
+      <text x="${(x1+x2)/2}" y="62" text-anchor="middle" font-family="Arial" font-size="14" font-weight="900" fill="red">
+        BEAM ADJUSTMENTS REQUIRED
+      </text>
+    `;
+  }
+
+  // Stations
+  pts.forEach((p, i) => {
+    const x = xForFt(p.stationFt);
+    const y1 = railTopY + 14;
+    const y2 = railBotY;
+
+    const isFail = fails[i];
+    const vAbs = Math.abs(p.valueIn);
+    const valueLabel = nearestFractionStringInches(vAbs);
+    const corr = correctionText(p.valueIn);
+
+    // station bubble label: show station ft
+    const stationLabel = `${Math.round(p.stationFt)}'`;
+
+    svg += `
+      <!-- Station ${i} -->
+      <g>
+        <circle cx="${x}" cy="${stationBubbleY}" r="12" fill="white" stroke="black" stroke-width="2"/>
+        <text x="${x}" y="${stationBubbleY+4}" text-anchor="middle" font-family="Arial" font-size="10" font-weight="700">${esc(stationLabel)}</text>
+
+        <line x1="${x}" y1="${y1}" x2="${x}" y2="${y2}"
+              stroke="black" stroke-width="2" marker-start="url(#arr)" marker-end="url(#arr)"/>
+
+        <rect x="${x-30}" y="${(y1+y2)/2 - 12}" width="60" height="24"
+              fill="white" stroke="${isFail ? "red" : "black"}" stroke-width="${isFail ? 2.5 : 1.5}"/>
+        <text x="${x}" y="${(y1+y2)/2 + 6}" text-anchor="middle"
+              font-family="Arial" font-size="12" font-weight="800" fill="${isFail ? "red" : "black"}">${esc(valueLabel)}</text>
+    `;
+
+    if (isFail && corr) {
+      svg += `
+        <rect x="${x-38}" y="${railTopY-52}" width="76" height="22" fill="white" stroke="red" stroke-width="2"/>
+        <text x="${x}" y="${railTopY-36}" text-anchor="middle" font-family="Arial" font-size="12" font-weight="900" fill="red">${esc(corr)}</text>
+      `;
+    }
+
+    svg += `</g>`;
+  });
+
+  svg += `</svg>`;
+  return svg;
+}
+
+function renderRunwayDiagramToPage() {
+  // If diagram UI isn't present, skip (no crash).
+  if (!runwaySvg) return;
+
+  latestDiagramSvgString = buildRunwayDiagramSvgString();
+  // Replace the SVG element itself with new markup (keep same container)
+  runwaySvg.outerHTML = latestDiagramSvgString;
+
+  // After outerHTML replacement, runwaySvg reference is stale; reacquire if needed
+}
+
+/* ---------------- PDF export (print popup) ---------------- */
 
 function exportPdfReport() {
   if (!latestRows.length) {
     summary.textContent = "Run a compliance check first, then export to PDF.";
     return;
   }
+
+  // Ensure we have latest diagram SVG for export
+  // (If user never clicked Render Diagram, we still build it from inputs)
+  latestDiagramSvgString = buildRunwayDiagramSvgString();
 
   const projectName = document.getElementById("projectName")?.value || "Unnamed Project";
   const generatedAt = new Date().toLocaleString();
@@ -396,31 +626,49 @@ function exportPdfReport() {
         <style>
           body { font-family: Arial, sans-serif; padding: 16px; }
           table { width: 100%; border-collapse: collapse; margin-top: 12px; }
-          th, td { border: 1px solid #ccc; padding: 6px; text-align: left; font-size: 12px; }
+          th, td { border: 1px solid #ccc; padding: 6px; text-align: left; font-size: 12px; vertical-align: top; }
           h1 { margin: 0 0 6px; }
           .meta { color: #444; margin-bottom: 10px; }
+          .diagramWrap { margin: 14px 0 18px; border: 1px solid #ccc; padding: 10px; border-radius: 8px; }
+          .note { font-size: 11px; color:#333; margin-top: 6px; }
+          @media print {
+            .diagramWrap { break-inside: avoid; }
+            table { break-inside: auto; }
+            tr { break-inside: avoid; break-after: auto; }
+          }
         </style>
       </head>
       <body>
         <h1>Big G Steel LLC - TR-13 Compliance Report</h1>
         <div class="meta"><strong>Project:</strong> ${projectName}<br><strong>Generated:</strong> ${generatedAt}</div>
+
+        <div class="diagramWrap">
+          <h2 style="margin:0 0 8px;">Runway Markup Diagram</h2>
+          ${latestDiagramSvgString}
+          <div class="note">
+            Diagram is generated from field station inputs. Cross-level values represent TOP OF RAIL to TOP OF RAIL elevation difference.
+          </div>
+        </div>
+
         <table>
           <thead>
             <tr><th>Check</th><th>Measured</th><th>Allowed</th><th>Status</th><th>Reference</th></tr>
           </thead>
           <tbody>${rowsHtml}</tbody>
         </table>
+
         <h2>Engineering Adjustment Suggestions</h2>
         <ul>${suggestionHtml}</ul>
       </body>
     </html>
   `);
+
   popup.document.close();
   popup.focus();
   popup.print();
 }
 
-/* ---------- Run compliance ---------- */
+/* ---------------- Run compliance ---------------- */
 
 function runCompliance() {
   const profile = activeProfile();
@@ -443,6 +691,12 @@ function runCompliance() {
 
   renderSuggestions(rows);
 
+  // Update on-page diagram automatically after compliance check (if diagram exists)
+  latestDiagramSvgString = buildRunwayDiagramSvgString();
+  if (runwaySvg) {
+    runwaySvg.outerHTML = latestDiagramSvgString;
+  }
+
   const passed = rows.filter((row) => row.pass).length;
 
   resultBody.innerHTML = rows
@@ -461,7 +715,7 @@ function runCompliance() {
   summary.textContent = `${passed} of ${rows.length} checks passed for profile: ${profileSelect.value}.`;
 }
 
-/* ---------- Event wiring + init ---------- */
+/* ---------------- Event wiring + init ---------------- */
 
 function init() {
   if (!assertRequiredDom()) return;
@@ -472,14 +726,32 @@ function init() {
     summary.textContent = "Inputs updated. Run the compliance check.";
   });
 
-  buildLayoutBtn.addEventListener("click", buildLayout);
+  buildLayoutBtn.addEventListener("click", () => {
+    buildLayout();
+    // After layout changes, rebuild diagram string (if diagram area exists)
+    latestDiagramSvgString = buildRunwayDiagramSvgString();
+    if (runwaySvg) runwaySvg.outerHTML = latestDiagramSvgString;
+  });
+
   runBtn.addEventListener("click", runCompliance);
   exportPdfBtn.addEventListener("click", exportPdfReport);
+
+  // Optional explicit diagram render button
+  if (renderDiagramBtn) {
+    renderDiagramBtn.addEventListener("click", () => {
+      latestDiagramSvgString = buildRunwayDiagramSvgString();
+      if (runwaySvg) runwaySvg.outerHTML = latestDiagramSvgString;
+    });
+  }
 
   buildProfileOptions();
   profileSelect.value = Object.keys(profiles)[0];
   renderForm();
   buildLayout();
+
+  // If diagram exists, render initial blank diagram
+  latestDiagramSvgString = buildRunwayDiagramSvgString();
+  if (runwaySvg) runwaySvg.outerHTML = latestDiagramSvgString;
 }
 
 window.addEventListener("load", init);
