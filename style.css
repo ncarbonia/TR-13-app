@@ -156,3 +156,18 @@ th{
   background:#f9fafb;
   font-weight:800;
 }
+/* ===== Force header to match requested spec ===== */
+header {
+  background: #146bb5;
+  color: #fff;
+  text-align: center;
+  padding: 28px 16px;
+}
+
+header h1, header h2, header h3 {
+  margin: 4px 0;
+  font-size: 26px;      /* all same size */
+  font-weight: 800;     /* bold */
+  line-height: 1.15;
+  letter-spacing: 0.2px;
+}
