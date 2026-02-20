@@ -105,13 +105,12 @@
   </main>
 
   <script src="/TR-13-app/app.js"></script>
-  <script>
-    // Optional PWA (leave ON only if you want caching during development)
-    if ("serviceWorker" in navigator) {
-      window.addEventListener("load", () => {
-        navigator.serviceWorker.register("/TR-13-app/sw.js").catch(console.error);
-      });
-    }
-  </script>
+ <script>
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("./sw.js").catch(console.error);
+    });
+  }
+</script>
 </body>
 </html>
