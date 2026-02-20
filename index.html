@@ -1,21 +1,21 @@
 <!doctype html>
 <html lang="en">
   <head>
-    <meta charset="UTF-8" >
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" >
-    <meta name="theme-color" content="#146bb5" >
-    <link rel="manifest" href="manifest.webmanifest" >
-    <link rel="apple-touch-icon" href="icons/icon-192.png" >
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#146bb5">
+
+    <link rel="manifest" href="./manifest.webmanifest">
     <title>Big G Steel LLC - TR-13 Crane Tolerance Checker</title>
-    <link rel="stylesheet" href="styles.css" >
+    <link rel="stylesheet" href="./styles.css">
   </head>
+
   <body>
     <main class="container">
       <header>
         <h1>Big G Steel LLC - Overhead Crane Installation Tolerance Checker</h1>
         <p>
-          Compare field measurements against CMAA 70 / CMAA 74 and TR-13 tolerance
-          checks.
+          Compare field measurements against CMAA 70 / CMAA 74 and TR-13 tolerance checks.
         </p>
       </header>
 
@@ -24,7 +24,7 @@
         <div class="grid two-col">
           <label>
             Project name
-            <input id="projectName" type="text" placeholder="Plant A - Runway Line 2" />
+            <input id="projectName" type="text" placeholder="Plant A - Runway Line 2">
           </label>
           <label>
             Spec profile
@@ -34,15 +34,15 @@
       </section>
 
       <section class="card">
-        <h2>Column Layout & Station Setup</h2>
+        <h2>Column Layout &amp; Station Setup</h2>
         <div class="grid two-col">
           <label>
             Columns per side
-            <input id="columnsPerSide" type="number" min="2" value="3" />
+            <input id="columnsPerSide" type="number" min="2" value="3">
           </label>
           <label>
             Measured station distance (ft)
-            <input id="measuredStationDistance" type="number" min="1" value="10" />
+            <input id="measuredStationDistance" type="number" min="1" value="10">
           </label>
           <label>
             Direction labels for side pair
@@ -52,8 +52,10 @@
             </select>
           </label>
         </div>
+
         <button id="buildLayout" class="secondary" type="button">Build Column Layout</button>
         <div id="layoutContainer" class="stack"></div>
+
         <p class="subtle">
           Enter designed and actual column-to-column distances for each side. The app uses
           your measured station distance to generate station points starting at 0 ft between columns.
@@ -72,6 +74,7 @@
         <div class="actions">
           <button id="exportPdf" class="secondary" type="button">Export Results to PDF</button>
         </div>
+
         <table id="resultTable" aria-label="Compliance results">
           <thead>
             <tr>
@@ -84,6 +87,7 @@
           </thead>
           <tbody></tbody>
         </table>
+
         <div id="suggestions" class="suggestions">
           <h3>Engineering Adjustment Suggestions</h3>
           <ul id="suggestionList">
@@ -102,6 +106,14 @@
       </section>
     </main>
 
-    <script src="app.js"></script>
+    <script src="./app.js"></script>
+    <script>
+      // PWA: register service worker (GitHub Pages-safe path)
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", () => {
+          navigator.serviceWorker.register("./sw.js").catch(console.error);
+        });
+      }
+    </script>
   </body>
 </html>
