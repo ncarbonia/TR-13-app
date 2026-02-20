@@ -82,6 +82,89 @@
       </div>
     </section>
 
+    <!-- NEW: Survey Import + Charts -->
+    <section class="card">
+      <h2>Straightness &amp; Eccentricity Survey (Station-by-Station)</h2>
+
+      <p class="subtle">
+        Paste station-by-station offsets. This produces report-style plots like a rail survey.
+        Units: station in <strong>ft</strong>, offsets in <strong>inches</strong>.
+      </p>
+
+      <div class="grid two-col">
+        <label class="field">
+          <span class="labelText">Straightness tolerance window (± in)</span>
+          <input id="surveyStraightTol" type="number" step="any" value="0.375">
+        </label>
+
+        <label class="field">
+          <span class="labelText">Max allowable rate of change (in per 20 ft)</span>
+          <input id="surveyRateTolPer20" type="number" step="any" value="0.25">
+        </label>
+      </div>
+
+      <details class="subtle" style="margin-top:10px;">
+        <summary><strong>Expected CSV format (copy/paste from Excel)</strong></summary>
+        <p style="margin:10px 0 0;">
+          Header row required. Use these column names (case-insensitive):
+        </p>
+        <pre style="white-space:pre-wrap; font-size:12px; margin-top:8px; padding:10px; border:1px solid #ddd; border-radius:10px;">
+StationFt,RailN,RailS,BeamN,BeamS
+0,0.05,-0.02,0.00,0.01
+10,0.10,-0.01,0.02,0.00
+20,0.12,0.03,0.03,0.02
+...
+        </pre>
+        <p style="margin-top:8px;">
+          If you don’t have BeamN/BeamS yet, you can still generate the straightness plots (eccentricity requires beam + rail).
+        </p>
+      </details>
+
+      <label class="field" style="margin-top:12px;">
+        <span class="labelText">Paste CSV data</span>
+        <textarea id="surveyCsv" rows="10" placeholder="StationFt,RailN,RailS,BeamN,BeamS&#10;0,0.05,-0.02,0.00,0.01&#10;10,0.10,-0.01,0.02,0.00"></textarea>
+      </label>
+
+      <div class="actions">
+        <button id="parseSurvey" class="btn secondary" type="button">Parse &amp; Render Survey Charts</button>
+        <button id="clearSurvey" class="btn secondary" type="button">Clear Survey Data</button>
+      </div>
+
+      <div id="surveyStatus" class="summary">No survey data parsed yet.</div>
+
+      <div class="stack" style="gap:16px; margin-top:12px;">
+        <div style="overflow:auto; border:1px solid #e5e7eb; border-radius:12px; padding:12px;">
+          <svg id="straightnessSvg" width="1100" height="360" viewBox="0 0 1100 360" role="img" aria-label="Straightness plot"></svg>
+        </div>
+
+        <div style="overflow:auto; border:1px solid #e5e7eb; border-radius:12px; padding:12px;">
+          <svg id="eccentricitySvg" width="1100" height="360" viewBox="0 0 1100 360" role="img" aria-label="Eccentricity plot"></svg>
+        </div>
+
+        <details class="subtle">
+          <summary><strong>Eccentricity tolerance zones (optional)</strong></summary>
+          <p style="margin-top:8px;">
+            Paste zones as CSV: <code>StartFt,EndFt,ToleranceIn</code> (one per line). Example:
+          </p>
+          <pre style="white-space:pre-wrap; font-size:12px; margin-top:8px; padding:10px; border:1px solid #ddd; border-radius:10px;">
+0,300,0.630
+300,325,0.454
+325,465,0.765
+465,700,0.630
+          </pre>
+
+          <label class="field" style="margin-top:10px;">
+            <span class="labelText">Tolerance zones CSV</span>
+            <textarea id="eccZones" rows="5">0,300,0.630
+300,325,0.454
+325,465,0.765
+465,700,0.630</textarea>
+          </label>
+        </details>
+      </div>
+    </section>
+
+    <!-- Existing Results -->
     <section class="card">
       <h2>Results</h2>
 
