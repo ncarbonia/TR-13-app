@@ -1,11 +1,10 @@
 {
-  "name": "Big G Steel LLC TR-13 Crane Tolerance Checker",
+  "name": "Big G Steel LLC - TR-13 Crane Tolerance Checker",
   "short_name": "Big G TR-13",
-  "start_url": "/",
-  "scope": "/",
+  "start_url": "./",
+  "scope": "./",
   "display": "standalone",
-  "background_color": "#f4f6f8",
+  "background_color": "#146bb5",
   "theme_color": "#146bb5",
-  "description": "Big G Steel LLC field app for overhead crane installation measurements and TR-13/CMAA tolerance checks.",
- 
+  "description": "Field app for overhead crane installation measurements and TR-13 / CMAA tolerance checks."
 }
