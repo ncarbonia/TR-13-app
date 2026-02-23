@@ -1030,6 +1030,31 @@ function init() {
     });
   }
 
+// Fractions card mobile toggle (collapsed by default)
+const fracToggle = document.querySelector(".fracToggle");
+const fracBody = document.getElementById("fracBody");
+if (fracToggle && fracBody) {
+  const setState = (open) => {
+    fracBody.hidden = !open;
+    fracToggle.setAttribute("aria-expanded", String(open));
+    fracToggle.textContent = open ? "Hide" : "Show";
+  };
+
+  // Default: open on desktop, closed on mobile
+  const isDesktop = window.matchMedia("(min-width: 900px)").matches;
+  setState(isDesktop);
+
+  fracToggle.addEventListener("click", () => {
+    setState(fracBody.hidden); // if hidden, open; if open, close
+  });
+
+  // If user rotates / resizes, re-evaluate default behavior
+  window.addEventListener("resize", () => {
+    const desktopNow = window.matchMedia("(min-width: 900px)").matches;
+    if (desktopNow) setState(true);
+  });
+}
+   
   buildProfileOptions();
   profileSelect.value = Object.keys(profiles)[0];
   renderForm();
