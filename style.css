@@ -293,3 +293,63 @@ textarea {
 
 .beamHidden .beamCol { display: none; }
 .beamHidden td.beamCell { display: none; }
+
+/* Sticky fraction reference card */
+.fracSticky{
+  position: sticky;
+  top: 12px;              /* distance from top while scrolling */
+  z-index: 50;            /* stays above other cards */
+  background: #fff;
+  border: 2px solid #facc15; /* subtle "yellow highlight" border */
+}
+
+/* Header */
+.fracHeader{
+  display:flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.fracTitle{
+  margin: 0;
+  font-size: 18px;
+}
+.fracSubtle{
+  font-size: 12px;
+  color: #6b7280;
+}
+
+/* Grid of fraction cells */
+.fracGrid{
+  display:grid;
+  grid-template-columns: repeat(4, minmax(160px, 1fr));
+  gap: 8px 12px;
+}
+
+/* Each cell */
+.fracCell{
+  display:flex;
+  align-items:center;
+  justify-content: space-between;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 6px 10px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 12px;
+  background: #fafafa;
+}
+.fracF{ font-weight: 800; }
+.fracEq{ opacity: 0.6; padding: 0 6px; }
+.fracD{ font-weight: 700; }
+
+/* Responsive: collapse columns */
+@media (max-width: 1100px){
+  .fracGrid{ grid-template-columns: repeat(3, minmax(160px, 1fr)); }
+}
+@media (max-width: 850px){
+  .fracGrid{ grid-template-columns: repeat(2, minmax(160px, 1fr)); }
+}
+@media (max-width: 520px){
+  .fracGrid{ grid-template-columns: 1fr; }
+}
