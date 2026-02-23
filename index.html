@@ -42,74 +42,75 @@
     <section class="card">
       <h2>Column Layout &amp; Station Setup</h2>
 
-   <!-- Fractions → Decimals reference (sticky on desktop, non-sticky on mobile) -->
-<section class="card fracCard" id="fracSticky">
-  <div class="fracHeader">
-    <div>
-      <h2 class="fracTitle">Fractions → Decimals</h2>
-      <div class="fracSubtle">Quick shim reference (inches)</div>
-    </div>
+      <!-- Fractions → Decimals reference (sticky on desktop, non-sticky on mobile) -->
+      <section class="card fracCard fracSticky" id="fracSticky">
+        <div class="fracHeader">
+          <div>
+            <h2 class="fracTitle">Fractions → Decimals</h2>
+            <div class="fracSubtle">Quick shim reference (inches)</div>
+          </div>
 
-    <!-- Mobile toggle -->
-    <button class="fracToggle" type="button" aria-controls="fracBody" aria-expanded="false">
-      Show
-    </button>
-  </div>
+          <!-- Toggle -->
+          <button id="fracToggle" class="fracToggle" type="button"
+                  aria-controls="fracBody" aria-expanded="false">
+            Show
+          </button>
+        </div>
 
-  <div class="fracBody" id="fracBody" hidden>
-    <div class="fracGrid3" aria-label="Fractions to decimals chart">
-      <!-- Column 1 -->
-      <div class="fracRow"><span>1/32</span><span>=</span><span>0.03125</span></div>
-      <div class="fracRow"><span>1/16</span><span>=</span><span>0.06250</span></div>
-      <div class="fracRow"><span>3/32</span><span>=</span><span>0.09375</span></div>
-      <div class="fracRow"><span>1/8</span><span>=</span><span>0.12500</span></div>
-      <div class="fracRow"><span>5/32</span><span>=</span><span>0.15625</span></div>
-      <div class="fracRow"><span>3/16</span><span>=</span><span>0.18750</span></div>
-      <div class="fracRow"><span>7/32</span><span>=</span><span>0.21875</span></div>
-      <div class="fracRow"><span>1/4</span><span>=</span><span>0.25000</span></div>
-      <div class="fracRow"><span>9/32</span><span>=</span><span>0.28125</span></div>
-      <div class="fracRow"><span>5/16</span><span>=</span><span>0.31250</span></div>
-      <div class="fracRow"><span>11/32</span><span>=</span><span>0.34375</span></div>
-      <div class="fracRow"><span>3/8</span><span>=</span><span>0.37500</span></div>
-      <div class="fracRow"><span>13/32</span><span>=</span><span>0.40625</span></div>
-      <div class="fracRow"><span>7/16</span><span>=</span><span>0.43750</span></div>
-      <div class="fracRow"><span>15/32</span><span>=</span><span>0.46875</span></div>
-      <div class="fracRow"><span>1/2</span><span>=</span><span>0.50000</span></div>
+        <div class="fracBody" id="fracBody" hidden>
+          <div class="fracGrid3" aria-label="Fractions to decimals chart">
+            <!-- Column 1 -->
+            <div class="fracRow"><span>1/32</span><span>=</span><span>0.03125</span></div>
+            <div class="fracRow"><span>1/16</span><span>=</span><span>0.06250</span></div>
+            <div class="fracRow"><span>3/32</span><span>=</span><span>0.09375</span></div>
+            <div class="fracRow"><span>1/8</span><span>=</span><span>0.12500</span></div>
+            <div class="fracRow"><span>5/32</span><span>=</span><span>0.15625</span></div>
+            <div class="fracRow"><span>3/16</span><span>=</span><span>0.18750</span></div>
+            <div class="fracRow"><span>7/32</span><span>=</span><span>0.21875</span></div>
+            <div class="fracRow"><span>1/4</span><span>=</span><span>0.25000</span></div>
+            <div class="fracRow"><span>9/32</span><span>=</span><span>0.28125</span></div>
+            <div class="fracRow"><span>5/16</span><span>=</span><span>0.31250</span></div>
+            <div class="fracRow"><span>11/32</span><span>=</span><span>0.34375</span></div>
+            <div class="fracRow"><span>3/8</span><span>=</span><span>0.37500</span></div>
+            <div class="fracRow"><span>13/32</span><span>=</span><span>0.40625</span></div>
+            <div class="fracRow"><span>7/16</span><span>=</span><span>0.43750</span></div>
+            <div class="fracRow"><span>15/32</span><span>=</span><span>0.46875</span></div>
+            <div class="fracRow"><span>1/2</span><span>=</span><span>0.50000</span></div>
 
-      <!-- Column 2 -->
-      <div class="fracRow"><span>17/32</span><span>=</span><span>0.53125</span></div>
-      <div class="fracRow"><span>9/16</span><span>=</span><span>0.56250</span></div>
-      <div class="fracRow"><span>19/32</span><span>=</span><span>0.59375</span></div>
-      <div class="fracRow"><span>5/8</span><span>=</span><span>0.62500</span></div>
-      <div class="fracRow"><span>21/32</span><span>=</span><span>0.65625</span></div>
-      <div class="fracRow"><span>11/16</span><span>=</span><span>0.68750</span></div>
-      <div class="fracRow"><span>23/32</span><span>=</span><span>0.71875</span></div>
-      <div class="fracRow"><span>3/4</span><span>=</span><span>0.75000</span></div>
-      <div class="fracRow"><span>25/32</span><span>=</span><span>0.78125</span></div>
-      <div class="fracRow"><span>13/16</span><span>=</span><span>0.81250</span></div>
-      <div class="fracRow"><span>27/32</span><span>=</span><span>0.84375</span></div>
-      <div class="fracRow"><span>7/8</span><span>=</span><span>0.87500</span></div>
-      <div class="fracRow"><span>29/32</span><span>=</span><span>0.90625</span></div>
-      <div class="fracRow"><span>15/16</span><span>=</span><span>0.93750</span></div>
-      <div class="fracRow"><span>31/32</span><span>=</span><span>0.96875</span></div>
-      <div class="fracRow"><span>1</span><span>=</span><span>1.00000</span></div>
+            <!-- Column 2 -->
+            <div class="fracRow"><span>17/32</span><span>=</span><span>0.53125</span></div>
+            <div class="fracRow"><span>9/16</span><span>=</span><span>0.56250</span></div>
+            <div class="fracRow"><span>19/32</span><span>=</span><span>0.59375</span></div>
+            <div class="fracRow"><span>5/8</span><span>=</span><span>0.62500</span></div>
+            <div class="fracRow"><span>21/32</span><span>=</span><span>0.65625</span></div>
+            <div class="fracRow"><span>11/16</span><span>=</span><span>0.68750</span></div>
+            <div class="fracRow"><span>23/32</span><span>=</span><span>0.71875</span></div>
+            <div class="fracRow"><span>3/4</span><span>=</span><span>0.75000</span></div>
+            <div class="fracRow"><span>25/32</span><span>=</span><span>0.78125</span></div>
+            <div class="fracRow"><span>13/16</span><span>=</span><span>0.81250</span></div>
+            <div class="fracRow"><span>27/32</span><span>=</span><span>0.84375</span></div>
+            <div class="fracRow"><span>7/8</span><span>=</span><span>0.87500</span></div>
+            <div class="fracRow"><span>29/32</span><span>=</span><span>0.90625</span></div>
+            <div class="fracRow"><span>15/16</span><span>=</span><span>0.93750</span></div>
+            <div class="fracRow"><span>31/32</span><span>=</span><span>0.96875</span></div>
+            <div class="fracRow"><span>1</span><span>=</span><span>1.00000</span></div>
 
-      <!-- Column 3 (most-used quick set) -->
-      <div class="fracRow fracQuick"><span>1/8</span><span>=</span><span>0.125</span></div>
-      <div class="fracRow fracQuick"><span>3/16</span><span>=</span><span>0.1875</span></div>
-      <div class="fracRow fracQuick"><span>1/4</span><span>=</span><span>0.25</span></div>
-      <div class="fracRow fracQuick"><span>5/16</span><span>=</span><span>0.3125</span></div>
-      <div class="fracRow fracQuick"><span>3/8</span><span>=</span><span>0.375</span></div>
-      <div class="fracRow fracQuick"><span>7/16</span><span>=</span><span>0.4375</span></div>
-      <div class="fracRow fracQuick"><span>1/2</span><span>=</span><span>0.5</span></div>
-      <div class="fracRow fracQuick"><span>5/8</span><span>=</span><span>0.625</span></div>
-      <div class="fracRow fracQuick"><span>3/4</span><span>=</span><span>0.75</span></div>
-      <div class="fracRow fracQuick"><span>7/8</span><span>=</span><span>0.875</span></div>
-      <div class="fracRow fracQuick"><span>1/16</span><span>=</span><span>0.0625</span></div>
-      <div class="fracRow fracQuick"><span>1/32</span><span>=</span><span>0.03125</span></div>
-    </div>
-  </div>
-</section>
+            <!-- Column 3 (most-used quick set) -->
+            <div class="fracRow fracQuick"><span>1/8</span><span>=</span><span>0.125</span></div>
+            <div class="fracRow fracQuick"><span>3/16</span><span>=</span><span>0.1875</span></div>
+            <div class="fracRow fracQuick"><span>1/4</span><span>=</span><span>0.25</span></div>
+            <div class="fracRow fracQuick"><span>5/16</span><span>=</span><span>0.3125</span></div>
+            <div class="fracRow fracQuick"><span>3/8</span><span>=</span><span>0.375</span></div>
+            <div class="fracRow fracQuick"><span>7/16</span><span>=</span><span>0.4375</span></div>
+            <div class="fracRow fracQuick"><span>1/2</span><span>=</span><span>0.5</span></div>
+            <div class="fracRow fracQuick"><span>5/8</span><span>=</span><span>0.625</span></div>
+            <div class="fracRow fracQuick"><span>3/4</span><span>=</span><span>0.75</span></div>
+            <div class="fracRow fracQuick"><span>7/8</span><span>=</span><span>0.875</span></div>
+            <div class="fracRow fracQuick"><span>1/16</span><span>=</span><span>0.0625</span></div>
+            <div class="fracRow fracQuick"><span>1/32</span><span>=</span><span>0.03125</span></div>
+          </div>
+        </div>
+      </section>
 
       <div class="grid three-col">
         <label class="field">
@@ -151,7 +152,6 @@
       </div>
     </section>
 
-    <!-- NEW: Station-by-station straightness & eccentricity inputs -->
     <section class="card">
       <h2>Straightness &amp; Eccentricity Survey (Station-by-Station)</h2>
 
