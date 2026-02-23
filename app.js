@@ -223,7 +223,7 @@ function renderForm() {
     check.inputs.forEach((input) => {
       const label = document.createElement("label");
       label.innerHTML = `${escHtml(check.label)} — ${escHtml(input.label)}
-        <input type="number" step="any" id="${check.id}_${input.id}" value="${input.value}" />`;
+        <input type="number" step="0.1" id="${check.id}_${input.id}" value="${input.value}" />`;
       form.append(label);
     });
   });
@@ -267,12 +267,12 @@ function buildLayout() {
     for (let segment = 1; segment < columns; segment += 1) {
       const designLabel = document.createElement("label");
       designLabel.innerHTML = `${escHtml(side.label)} Column ${segment} to ${escHtml(side.label)} Column ${segment + 1} designed distance (ft)
-        <input type="number" step="any" min="0" id="${side.key}_design_distance_${segment}" value="60" />`;
+        <input type="number" step="1" min="0" id="${side.key}_design_distance_${segment}" value="60" />`;
       fieldset.append(designLabel);
 
       const actualLabel = document.createElement("label");
       actualLabel.innerHTML = `${escHtml(side.label)} Column ${segment} to ${escHtml(side.label)} Column ${segment + 1} actual distance (ft)
-        <input type="number" step="any" min="0" id="${side.key}_actual_distance_${segment}" value="60" />`;
+        <input type="number" step="1" min="0" id="${side.key}_actual_distance_${segment}" value="60" />`;
       fieldset.append(actualLabel);
     }
 
@@ -295,7 +295,7 @@ function buildLayout() {
       stationOffsets(designDistance, measuredStationDistance).forEach((offset) => {
         const label = document.createElement("label");
         label.innerHTML = `${escHtml(side.label)} Column ${segment} to ${escHtml(side.label)} Column ${segment + 1} elevation from Baseline at ${offset} ft station (in)
-          <input type="number" step="any" id="${side.key}_segment_${segment}_station_${offset}" value="0" />`;
+          <input type="number" step="0.1" id="${side.key}_segment_${segment}_station_${offset}" value="0" />`;
         sideMeasurements.append(label);
       });
     }
@@ -314,7 +314,7 @@ function buildLayout() {
     stationOffsets(Math.min(sideADesignDistance, sideBDesignDistance), measuredStationDistance).forEach((offset) => {
       const label = document.createElement("label");
       label.innerHTML = `${escHtml(sides[0].label)}${segment} to ${escHtml(sides[1].label)}${segment} cross-level at ${offset} ft station (in)
-        <input type="number" step="any" id="cross_segment_${segment}_station_${offset}" value="0" />`;
+        <input type="number" step="0.1" id="cross_segment_${segment}_station_${offset}" value="0" />`;
       crossLevelMeasurements.append(label);
     });
   }
@@ -326,15 +326,15 @@ function buildLayout() {
   tolerances.innerHTML = `<legend>TR-13 checks and tolerances</legend>
     <label>
       Column-to-column distance deviation tolerance (in)
-      <input type="number" step="any" min="0" id="columnDistanceTol" value="0.25" />
+      <input type="number" step="0.1" min="0" id="columnDistanceTol" value="0.25" />
     </label>
     <label>
       Side elevation from Baseline tolerance (in)
-      <input type="number" step="any" min="0" id="baselineTol" value="0.125" />
+      <input type="number" step="0.1" min="0" id="baselineTol" value="0.125" />
     </label>
     <label>
       Cross-level tolerance (in)
-      <input type="number" step="any" min="0" id="crossLevelTol" value="0.375" />
+      <input type="number" step="0.1" min="0" id="crossLevelTol" value="0.375" />
     </label>`;
   layoutContainer.append(tolerances);
 
@@ -604,10 +604,10 @@ function buildSurveyStations() {
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td>${ft}</td>
-      <td><input data-k="railN" data-ft="${ft}" type="number" step="any" value="0"></td>
-      <td><input data-k="railS" data-ft="${ft}" type="number" step="any" value="0"></td>
-      <td class="beamCell"><input data-k="beamN" data-ft="${ft}" type="number" step="any" value="0"></td>
-      <td class="beamCell"><input data-k="beamS" data-ft="${ft}" type="number" step="any" value="0"></td>
+      <td><input data-k="railN" data-ft="${ft}" type="number" step="0.1" value="0"></td>
+      <td><input data-k="railS" data-ft="${ft}" type="number" step="0.1" value="0"></td>
+      <td class="beamCell"><input data-k="beamN" data-ft="${ft}" type="number" step="0.1" value="0"></td>
+      <td class="beamCell"><input data-k="beamS" data-ft="${ft}" type="number" step="0.1" value="0"></td>
       <td class="pfN">—</td>
       <td class="pfS">—</td>
       <td class="rateN">—</td>
