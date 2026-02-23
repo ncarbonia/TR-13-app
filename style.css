@@ -36,16 +36,6 @@ body{
   letter-spacing: .2px;
 }
 
-textarea {
-  width: 100%;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-  font-size: 12px;
-  padding: 10px;
-  border-radius: 12px;
-  border: 1px solid #d1d5db;
-  resize: vertical;
-}
-
 /* ===== Layout ===== */
 .container{
   max-width: 1100px;
@@ -78,7 +68,6 @@ textarea {
   display:grid;
   gap: 12px 14px;
 }
-
 .two-col{ grid-template-columns: 1fr 1fr; }
 .three-col{ grid-template-columns: 1fr 1fr 1fr; }
 
@@ -128,7 +117,6 @@ input:focus, select:focus{
   background: var(--brand);
   color:#fff;
 }
-
 .btn.primary:hover{ filter: brightness(0.95); }
 
 .btn.secondary{
@@ -136,10 +124,9 @@ input:focus, select:focus{
   color:#0b3f6a;
   border-color: rgba(20,107,181,.25);
 }
-
 .btn.secondary:hover{ filter: brightness(0.98); }
 
-/* ===== Form rows (one line per measurement) ===== */
+/* ===== Form rows ===== */
 .formList{
   display:flex;
   flex-direction:column;
@@ -157,20 +144,10 @@ input:focus, select:focus{
   background:#fff;
 }
 
-.formList label > span,
-.formList label > div,
-.formList label{
-  font-size: 14px;
-}
-
-.formList label input{
-  margin:0;
-}
+.formList label input{ margin:0; }
 
 @media (max-width: 720px){
-  .formList label{
-    grid-template-columns: 1fr;
-  }
+  .formList label{ grid-template-columns: 1fr; }
 }
 
 /* ===== Fieldsets generated in layoutContainer ===== */
@@ -192,7 +169,6 @@ fieldset.grid{
   grid-template-columns: 1fr 1fr;
   gap: 10px 12px;
 }
-
 @media (max-width: 900px){
   fieldset.grid{ grid-template-columns: 1fr; }
 }
@@ -234,17 +210,9 @@ th{
   font-weight: 900;
 }
 
-.status{
-  font-weight: 900;
-}
-
-.status.pass{
-  color:#0a7a2f;
-}
-
-.status.fail{
-  color:#b42318;
-}
+.status{ font-weight: 900; }
+.status.pass{ color:#0a7a2f; }
+.status.fail{ color:#b42318; }
 
 .suggestions{
   margin-top: 14px;
@@ -269,8 +237,8 @@ th{
   font-size: 13px;
 }
 
-/* Basic UI helpers (safe add-ons) */
-textarea {
+/* ===== Textareas ===== */
+textarea{
   width: 100%;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
   font-size: 12px;
@@ -280,30 +248,42 @@ textarea {
   resize: vertical;
 }
 
-.svgFrame {
+/* ===== SVG frame ===== */
+.svgFrame{
   overflow: auto;
   border: 1px solid #e5e7eb;
   border-radius: 12px;
   padding: 12px;
 }
 
-.tableWrap table input[type="number"]{
-  width: 110px;
-}
+/* ===== Survey table number inputs ===== */
+.tableWrap table input[type="number"]{ width: 110px; }
 
-.beamHidden .beamCol { display: none; }
-.beamHidden td.beamCell { display: none; }
+/* Beam columns hide helper */
+.beamHidden .beamCol { display:none; }
+.beamHidden td.beamCell { display:none; }
 
-/* Sticky fraction reference card */
+/* =========================
+   Fractions → Decimals Card
+   ========================= */
+
+/* sticky on desktop only */
 .fracSticky{
   position: sticky;
-  top: 12px;              /* distance from top while scrolling */
-  z-index: 50;            /* stays above other cards */
-  background: #fff;
-  border: 2px solid #facc15; /* subtle "yellow highlight" border */
+  top: 12px;
+  z-index: 50;
+  background:#fff;
+  border: 2px solid #facc15;
 }
 
-/* Header */
+/* Disable sticky on mobile so it behaves normally */
+@media (max-width: 900px){
+  .fracSticky{
+    position: static;
+    top: auto;
+  }
+}
+
 .fracHeader{
   display:flex;
   align-items: baseline;
@@ -311,27 +291,48 @@ textarea {
   gap: 12px;
   margin-bottom: 10px;
 }
+
 .fracTitle{
   margin: 0;
   font-size: 18px;
 }
+
 .fracSubtle{
   font-size: 12px;
   color: #6b7280;
 }
 
-/* Grid of fraction cells */
-.fracGrid{
+.fracToggle{
+  border: 1px solid #d1d5db;
+  background: #fff;
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.fracToggle:active{ transform: translateY(1px); }
+
+.fracBody{ margin-top: 6px; }
+
+.fracGrid3{
   display:grid;
-  grid-template-columns: repeat(4, minmax(160px, 1fr));
+  grid-template-columns: repeat(3, minmax(160px, 1fr));
   gap: 8px 12px;
 }
 
-/* Each cell */
-.fracCell{
-  display:flex;
-  align-items:center;
-  justify-content: space-between;
+@media (max-width: 1000px){
+  .fracGrid3{ grid-template-columns: repeat(2, minmax(160px, 1fr)); }
+}
+
+@media (max-width: 520px){
+  .fracGrid3{ grid-template-columns: 1fr; }
+}
+
+.fracRow{
+  display:grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 10px;
   border: 1px solid #e5e7eb;
   border-radius: 10px;
   padding: 6px 10px;
@@ -339,17 +340,9 @@ textarea {
   font-size: 12px;
   background: #fafafa;
 }
-.fracF{ font-weight: 800; }
-.fracEq{ opacity: 0.6; padding: 0 6px; }
-.fracD{ font-weight: 700; }
 
-/* Responsive: collapse columns */
-@media (max-width: 1100px){
-  .fracGrid{ grid-template-columns: repeat(3, minmax(160px, 1fr)); }
-}
-@media (max-width: 850px){
-  .fracGrid{ grid-template-columns: repeat(2, minmax(160px, 1fr)); }
-}
-@media (max-width: 520px){
-  .fracGrid{ grid-template-columns: 1fr; }
+.fracQuick{
+  font-weight: 900;
+  background: #fff7ed;
+  border-color: #fed7aa;
 }
