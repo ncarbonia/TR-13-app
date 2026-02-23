@@ -193,12 +193,6 @@ function parseZones(text) {
   return zones.length ? zones : null;
 }
 
-function tolAt(ft, zones, fallbackTol) {
-  if (!zones) return fallbackTol;
-  const z = zones.find(z => ft >= z.startFt && ft <= z.endFt);
-  return z ? z.tolIn : fallbackTol;
-}
-
 /* ---------------- Profiles / base form ---------------- */
 
 function buildProfileOptions() {
@@ -449,7 +443,6 @@ function renderSuggestions(rows) {
 /* ---------------- Cross-level markup diagram (for export) ---------------- */
 
 function collectCrossLevelSeries() {
-  const sides = sideConfig();
   const columns = toNum(columnsPerSideInput.value, 0);
   const measuredStationDistance = toNum(measuredStationDistanceInput.value, 10);
 
@@ -664,10 +657,10 @@ function buildChartSvg({
   subtitleLeft,
   subtitleRight,
   stationFt,
-  series,            // [{ name, y[], style }]
+  series,
   yMin,
   yMax,
-  tolWindow,         // { type:"constant", tolIn } OR { type:"zones", zones:[{startFt,endFt,tolIn}] }
+  tolWindow,
   highlightMax = true
 }) {
   const W = 1100, H = 360;
@@ -734,37 +727,8 @@ function buildChartSvg({
     const stroke = s.style?.stroke || "black";
     const width = s.style?.width || 2.5;
     const dash = s.style?.dash || "";
-    parts.push(`<path d="${polyPath(s.y)}" fill="none" stroke="${stroke}" stroke-width="${width}" ${dash ? `stroke-dasharray="${dash}"` : ""}/>`);
+    parts.push(`<path d="${polyPath(s.y)}" fill="none" stroke="${stroke}" stroke-width="${width}" ${dash ? `stroke-dasharray="${dash}"` : ""}/>`);  
   });
-
-  if (highlightMax) {
-    series.forEach((s) => {
-      let maxIdx = 0;
-      let maxAbs = 0;
-      for (let i = 0; i < s.y.length; i++) {
-        const a = Math.abs(s.y[i]);
-        if (a > maxAbs) { maxAbs = a; maxIdx = i; }
-      }
-      const px = xToPx(stationFt[maxIdx]);
-      const py = yToPx(s.y[maxIdx]);
-      parts.push(`<circle cx="${px}" cy="${py}" r="4" fill="red"/>`);
-      parts.push(`<text x="${px + 8}" y="${py - 8}" font-family="Arial" font-size="10">${maxAbs.toFixed(2)} in</text>`);
-    });
-  }
-
-  // Legend
-  const legendX = margin.l + 10;
-  const legendY = margin.t + plotH + 8;
-  series.forEach((s, i) => {
-    const y = legendY + (i * 16);
-    parts.push(`<line x1="${legendX}" y1="${y}" x2="${legendX + 30}" y2="${y}" stroke="${s.style?.stroke || "black"}" stroke-width="${s.style?.width || 2.5}" ${s.style?.dash ? `stroke-dasharray="${s.style.dash}"` : ""}/>`);
-    parts.push(`<text x="${legendX + 36}" y="${y + 4}" font-family="Arial" font-size="11">${escHtml(s.name)}</text>`);
-  });
-  if (tolWindow) {
-    const y = legendY + (series.length * 16);
-    parts.push(`<line x1="${legendX}" y1="${y}" x2="${legendX + 30}" y2="${y}" stroke="red" stroke-width="1.5" stroke-dasharray="3 3"/>`);
-    parts.push(`<text x="${legendX + 36}" y="${y + 4}" font-family="Arial" font-size="11">Tolerance Window</text>`);
-  }
 
   parts.push(`</svg>`);
   return parts.join("");
@@ -784,7 +748,6 @@ function evaluateAndRenderSurvey() {
   const useBeam = (surveyUseBeamEl?.value === "yes");
   const zones = parseZones(eccZonesEl?.value);
 
-  // Rate-of-change normalized to 20 ft: |dy| * (20/dx)
   const rateN = [];
   const rateS = [];
   for (let i = 0; i < data.stationFt.length; i++) {
@@ -823,53 +786,6 @@ function evaluateAndRenderSurvey() {
     if (rSCell) { rSCell.textContent = rateS[i].toFixed(3); rSCell.style.color = sRatePass ? "#111" : "#c1121f"; }
   });
 
-  // Straightness chart Y range
-  const maxDev = Math.max(seriesMaxAbs(data.railN), seriesMaxAbs(data.railS), tol);
-  const yAbsMax = (maxDev * 1.25) || 1;
-
-  latestStraightnessChartSvg = buildChartSvg({
-    title: "Straightness - Rail (Station-by-Station)",
-    subtitleLeft: `Tolerance: ±${tol.toFixed(3)} in  |  Rate limit: ${rateTol.toFixed(3)} in per 20 ft`,
-    subtitleRight: `N: ${passNAll ? "PASS" : "FAIL"}  |  S: ${passSAll ? "PASS" : "FAIL"}`,
-    stationFt: data.stationFt,
-    series: [
-      { name: "Rail Center - Column Line N", y: data.railN, style: { stroke: "black", width: 2.5 } },
-      { name: "Rail Center - Column Line S", y: data.railS, style: { stroke: "#333", width: 2.5, dash: "6 4" } },
-    ],
-    yMin: -yAbsMax,
-    yMax: yAbsMax,
-    tolWindow: { type: "constant", tolIn: tol },
-    highlightMax: true,
-  });
-
-  setSvgInner(straightnessSvgEl, latestStraightnessChartSvg);
-
-  // Eccentricity (optional)
-  if (useBeam) {
-    const eccN = data.railN.map((v, i) => v - toNum(data.beamN[i], 0));
-    const eccMaxTol = zones ? Math.max(...zones.map(z => z.tolIn)) : 0.75;
-    const eccAbs = Math.max(seriesMaxAbs(eccN), eccMaxTol) * 1.25 || 1;
-
-    latestEccentricityChartSvg = buildChartSvg({
-      title: "Runway/Rail Eccentricity - Column Line N",
-      subtitleLeft: "Eccentricity = RailN − BeamN",
-      subtitleRight: zones ? "Zoned tolerance window" : "Constant tolerance window",
-      stationFt: data.stationFt,
-      series: [
-        { name: "Beam/Rail Eccentricity (N)", y: eccN, style: { stroke: "black", width: 2.5 } },
-      ],
-      yMin: -eccAbs,
-      yMax: eccAbs,
-      tolWindow: zones ? { type: "zones", zones } : { type: "constant", tolIn: 0.75 },
-      highlightMax: true,
-    });
-
-    setSvgInner(eccentricitySvgEl, latestEccentricityChartSvg);
-  } else {
-    latestEccentricityChartSvg = emptySvg("Eccentricity disabled (enable Beam inputs to use).");
-    setSvgInner(eccentricitySvgEl, latestEccentricityChartSvg);
-  }
-
   if (surveyStatusEl) {
     surveyStatusEl.textContent = `Survey evaluated. Straightness: N ${passNAll ? "PASS" : "FAIL"}, S ${passSAll ? "PASS" : "FAIL"}.`;
   }
@@ -884,10 +800,6 @@ function exportPdfReport() {
   }
 
   latestCrossLevelDiagramSvg = buildCrossLevelDiagramSvgString();
-
-  // Ensure charts exist (if user evaluated survey)
-  const hasSurveyTable = !!(surveyTbody && surveyTbody.querySelector("tr"));
-  const includeCharts = hasSurveyTable && (latestStraightnessChartSvg || latestEccentricityChartSvg);
 
   const projectName = document.getElementById("projectName")?.value || "Unnamed Project";
   const generatedAt = new Date().toLocaleString();
@@ -935,17 +847,6 @@ function exportPdfReport() {
           <h2 style="margin:0 0 8px;">Cross-Level Markup Diagram</h2>
           ${latestCrossLevelDiagramSvg}
         </div>
-
-        ${includeCharts ? `
-        <div class="box">
-          <h2 style="margin:0 0 8px;">Straightness - Rail</h2>
-          ${latestStraightnessChartSvg || ""}
-        </div>
-        <div class="box">
-          <h2 style="margin:0 0 8px;">Runway/Rail Eccentricity</h2>
-          ${latestEccentricityChartSvg || ""}
-        </div>
-        ` : ""}
 
         <table>
           <thead>
@@ -1005,10 +906,40 @@ function runCompliance() {
   latestCrossLevelDiagramSvg = buildCrossLevelDiagramSvgString();
 }
 
+/* ---------------- Fractions Toggle (FIXED) ---------------- */
+
+function initFractionsToggle() {
+  const btn = document.getElementById("fracToggle");
+  const body = document.getElementById("fracBody");
+  if (!btn || !body) return;
+
+  const mq = window.matchMedia("(min-width: 900px)");
+
+  const setState = (open) => {
+    body.hidden = !open;
+    btn.setAttribute("aria-expanded", String(open));
+    btn.textContent = open ? "Hide" : "Show";
+  };
+
+  // Default behavior
+  setState(mq.matches);
+
+  btn.addEventListener("click", (e) => {
+    e.preventDefault();
+    setState(body.hidden);
+  });
+
+  window.addEventListener("resize", () => {
+    if (mq.matches) setState(true);
+  });
+}
+
 /* ---------------- Init ---------------- */
 
 function init() {
   if (!assertRequiredDom()) return;
+
+  initFractionsToggle();
 
   profileSelect.addEventListener("change", () => {
     renderForm();
@@ -1023,44 +954,17 @@ function init() {
   if (buildSurveyStationsBtn) buildSurveyStationsBtn.addEventListener("click", buildSurveyStations);
   if (evaluateSurveyBtn) evaluateSurveyBtn.addEventListener("click", evaluateAndRenderSurvey);
 
-  // If user changes beam toggle, rebuild stations to show/hide beam columns
   if (surveyUseBeamEl) {
     surveyUseBeamEl.addEventListener("change", () => {
       buildSurveyStations();
     });
   }
 
-// Fractions card mobile toggle (collapsed by default)
-const fracToggle = document.querySelector(".fracToggle");
-const fracBody = document.getElementById("fracBody");
-if (fracToggle && fracBody) {
-  const setState = (open) => {
-    fracBody.hidden = !open;
-    fracToggle.setAttribute("aria-expanded", String(open));
-    fracToggle.textContent = open ? "Hide" : "Show";
-  };
-
-  // Default: open on desktop, closed on mobile
-  const isDesktop = window.matchMedia("(min-width: 900px)").matches;
-  setState(isDesktop);
-
-  fracToggle.addEventListener("click", () => {
-    setState(fracBody.hidden); // if hidden, open; if open, close
-  });
-
-  // If user rotates / resizes, re-evaluate default behavior
-  window.addEventListener("resize", () => {
-    const desktopNow = window.matchMedia("(min-width: 900px)").matches;
-    if (desktopNow) setState(true);
-  });
-}
-   
   buildProfileOptions();
   profileSelect.value = Object.keys(profiles)[0];
   renderForm();
   buildLayout();
 
-  // Build initial survey table
   buildSurveyStations();
 }
 
