@@ -96,9 +96,16 @@ input, select{
   background:#fff;
 }
 
-input:focus, select:focus{
+input:focus, select:focus, textarea:focus{
   border-color: rgba(20,107,181,.55);
   box-shadow: 0 0 0 3px rgba(20,107,181,.15);
+}
+
+/* readonly calculated fields */
+.readonlyCalc{
+  background:#f8fbff;
+  color:#0b3f6a;
+  font-weight:800;
 }
 
 /* ===== Buttons ===== */
@@ -267,7 +274,6 @@ textarea{
    Fractions → Decimals Card
    ========================= */
 
-/* sticky on desktop only */
 .fracSticky{
   position: sticky;
   top: 12px;
@@ -276,7 +282,6 @@ textarea{
   border: 2px solid #facc15;
 }
 
-/* Disable sticky on mobile so it behaves normally */
 @media (max-width: 900px){
   .fracSticky{
     position: static;
