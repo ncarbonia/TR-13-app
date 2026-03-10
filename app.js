@@ -151,12 +151,6 @@ function setSvgInner(svgEl, svgString) {
   svgEl.innerHTML = doc.documentElement.innerHTML;
 }
 
-function seriesMaxAbs(y) {
-  let m = 0;
-  for (const v of y) m = Math.max(m, Math.abs(v));
-  return m;
-}
-
 function parseZones(text) {
   const lines = String(text || "")
     .split(/\r?\n/)
@@ -235,21 +229,17 @@ function getCrossLevelToleranceValue() {
 function getTotalRunwayLengthForSide(sideKey) {
   const columns = toNum(columnsPerSideInput.value, 0);
   let total = 0;
-
   for (let segment = 1; segment < columns; segment += 1) {
     total += getSegmentLengthFt(sideKey, segment);
   }
-
   return total;
 }
 
 function autoPopulateSurveyRunwayLength() {
   if (!surveyRunwayLengthFtEl) return;
-
   const sideATotal = getTotalRunwayLengthForSide("sideA");
   const sideBTotal = getTotalRunwayLengthForSide("sideB");
   const runwayLength = Math.max(sideATotal, sideBTotal);
-
   if (runwayLength > 0) {
     surveyRunwayLengthFtEl.value = String(runwayLength);
   }
@@ -257,6 +247,20 @@ function autoPopulateSurveyRunwayLength() {
 
 function stationLabel(segment, offsetFt) {
   return `Seg ${segment} @ ${offsetFt} ft`;
+}
+
+function buildNiceCenteredYAxis(maxAbsValue, step = 0.1, minHalfRange = 0.4) {
+  const safeStep = Math.max(0.01, step);
+  const padded = Math.max(minHalfRange, maxAbsValue);
+  const halfRange = Math.ceil(padded / safeStep) * safeStep;
+  const yMin = -halfRange;
+  const yMax = halfRange;
+
+  const ticks = [];
+  for (let y = yMin; y <= yMax + 1e-9; y += safeStep) {
+    ticks.push(Number(y.toFixed(3)));
+  }
+  return { yMin, yMax, ticks };
 }
 
 function correctionArrowTextBaseline(valueIn, tolIn) {
@@ -272,7 +276,6 @@ function correctionArrowTextCrossLevel(valueIn, tolIn, sideAName, sideBName) {
   const absVal = Math.abs(valueIn);
   const excess = Math.max(0, absVal - tolIn);
   if (excess <= 0) return "WITHIN TOL";
-
   if (valueIn > 0) {
     return `LOWER ${sideAName} or RAISE ${sideBName} by ${nearestFractionStringInches(excess)} (${excess.toFixed(3)} in)`;
   }
@@ -283,34 +286,16 @@ function correctionArrowTextSpan(measuredSpan, referenceSpan, spanTol) {
   const delta = measuredSpan - referenceSpan;
   const absDelta = Math.abs(delta);
   if (absDelta <= spanTol) return "WITHIN TOL";
-
   if (delta > 0) {
     return `SPAN TOO WIDE — MOVE RAILS IN ${nearestFractionStringInches(absDelta)} (${absDelta.toFixed(3)} in total)`;
   }
   return `SPAN TOO NARROW — MOVE RAILS OUT ${nearestFractionStringInches(absDelta)} (${absDelta.toFixed(3)} in total)`;
 }
 
-function buildNiceCenteredYAxis(maxAbsValue, step = 0.1, minHalfRange = 0.4) {
-  const safeStep = Math.max(0.01, step);
-  const padded = Math.max(minHalfRange, maxAbsValue);
-  const halfRange = Math.ceil(padded / safeStep) * safeStep;
-
-  const yMin = -halfRange;
-  const yMax = halfRange;
-
-  const ticks = [];
-  for (let y = yMin; y <= yMax + 1e-9; y += safeStep) {
-    ticks.push(Number(y.toFixed(3)));
-  }
-
-  return { yMin, yMax, ticks };
-}
-
 /* ---------------- Profiles / base form ---------------- */
 
 function buildProfileOptions() {
   profileSelect.innerHTML = "";
-
   Object.keys(profiles).forEach((name) => {
     const option = document.createElement("option");
     option.value = name;
@@ -607,7 +592,7 @@ function renderSuggestions(rows) {
     .join("");
 }
 
-/* ---------------- 3-layer markup data ---------------- */
+/* ---------------- Markup data ---------------- */
 
 function collectBaselineLayerData() {
   const sides = sideConfig();
@@ -627,7 +612,6 @@ function collectBaselineLayerData() {
       offsets.forEach((offsetFt) => {
         const raw = getSideElevationValue(side.key, segment, offsetFt);
         const absVal = Math.abs(raw);
-
         pts.push({
           family: "baseline",
           sideKey: side.key,
@@ -671,7 +655,6 @@ function collectCrossLevelLayerData() {
     offsets.forEach((offsetFt) => {
       const raw = getRailToRailValue(segment, offsetFt);
       const absVal = Math.abs(raw);
-
       pts.push({
         family: "crossLevel",
         segment,
@@ -712,7 +695,6 @@ function collectSpanLayerData() {
     offsets.forEach((offsetFt) => {
       const measuredSpan = getSpanMeasurementValue(segment, offsetFt);
       const delta = measuredSpan - referenceSpan;
-
       pts.push({
         family: "span",
         segment,
@@ -734,19 +716,228 @@ function collectSpanLayerData() {
   return pts;
 }
 
+/* ---------------- Chart rendering ---------------- */
+
+function buildChartSvg({ title, subtitleLeft, subtitleRight, stationFt, series, tolWindow }) {
+  const W = 1100;
+  const H = 430;
+  const margin = { l: 95, r: 38, t: 66, b: 66 };
+  const plotW = W - margin.l - margin.r;
+  const plotH = H - margin.t - margin.b;
+
+  if (!stationFt || stationFt.length < 2) {
+    return emptySvg("Not enough chart data.");
+  }
+
+  const xMin = Math.min(...stationFt);
+  const xMax = Math.max(...stationFt);
+  const xSpan = Math.max(1e-6, xMax - xMin);
+
+  let tolAbs = 0;
+  if (tolWindow) {
+    if (tolWindow.type === "constant") {
+      tolAbs = Math.abs(toNum(tolWindow.tolIn, 0));
+    } else if (tolWindow.type === "zones" && Array.isArray(tolWindow.zones)) {
+      tolAbs = Math.max(...tolWindow.zones.map((z) => Math.abs(toNum(z.tolIn, 0))), 0);
+    }
+  }
+
+  const maxSeriesAbs = Math.max(
+    tolAbs,
+    ...series.flatMap((s) => s.y.map((v) => Math.abs(toNum(v, 0))))
+  );
+
+  const axis = buildNiceCenteredYAxis(maxSeriesAbs, 0.1, 0.4);
+  const finalYMin = axis.yMin;
+  const finalYMax = axis.yMax;
+  const yTicks = axis.ticks;
+
+  const xToPx = (x) => margin.l + ((x - xMin) / xSpan) * plotW;
+  const yToPx = (y) => margin.t + (1 - ((y - finalYMin) / (finalYMax - finalYMin))) * plotH;
+
+  function tolAtStation(ft) {
+    if (!tolWindow) return 0;
+    if (tolWindow.type === "constant") {
+      return toNum(tolWindow.tolIn, 0);
+    }
+    if (tolWindow.type === "zones") {
+      const z = tolWindow.zones.find((zone) => ft >= zone.startFt && ft <= zone.endFt);
+      return z ? toNum(z.tolIn, 0) : (tolWindow.zones[tolWindow.zones.length - 1]?.tolIn ?? 0);
+    }
+    return 0;
+  }
+
+  const upperTol = stationFt.map((ft) => tolAtStation(ft));
+  const lowerTol = upperTol.map((v) => -v);
+
+  const polyPath = (arr) =>
+    arr.map((yy, i) => `${i === 0 ? "M" : "L"} ${xToPx(stationFt[i])} ${yToPx(yy)}`).join(" ");
+
+  const parts = [];
+  parts.push(`
+    <svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
+      <rect x="0" y="0" width="${W}" height="${H}" fill="white"/>
+
+      <text x="${margin.l}" y="28" font-family="Arial" font-size="18" font-weight="800">${escHtml(title)}</text>
+      <text x="${margin.l}" y="48" font-family="Arial" font-size="12">${escHtml(subtitleLeft || "")}</text>
+      <text x="${W - margin.r}" y="48" font-family="Arial" font-size="12" text-anchor="end">${escHtml(subtitleRight || "")}</text>
+
+      <rect x="${margin.l}" y="${margin.t}" width="${plotW}" height="${plotH}" fill="white" stroke="#666" stroke-width="1.2"/>
+  `);
+
+  yTicks.forEach((tick) => {
+    const y = yToPx(tick);
+    const isZero = Math.abs(tick) < 1e-9;
+
+    parts.push(`
+      <line
+        x1="${margin.l}"
+        y1="${y}"
+        x2="${margin.l + plotW}"
+        y2="${y}"
+        stroke="${isZero ? "#555" : "#dddddd"}"
+        stroke-width="${isZero ? "1.8" : "1"}"
+      />
+      <text
+        x="${margin.l - 12}"
+        y="${y + 4}"
+        text-anchor="end"
+        font-family="Arial"
+        font-size="10"
+        fill="#666"
+      >${tick.toFixed(1)}</text>
+    `);
+  });
+
+  stationFt.forEach((ft, i) => {
+    const x = xToPx(ft);
+    parts.push(`<line x1="${x}" y1="${margin.t + plotH}" x2="${x}" y2="${margin.t + plotH + 6}" stroke="#777" stroke-width="1"/>`);
+
+    const showLabel =
+      stationFt.length <= 14 ||
+      i === 0 ||
+      i === stationFt.length - 1 ||
+      i % 2 === 0;
+
+    if (showLabel) {
+      parts.push(`
+        <text x="${x}" y="${margin.t + plotH + 21}" text-anchor="middle" font-family="Arial" font-size="10" fill="#555">${ft.toFixed(0)}'</text>
+      `);
+    }
+  });
+
+  if (tolWindow) {
+    parts.push(`<path d="${polyPath(upperTol)}" fill="none" stroke="#ff4d4d" stroke-width="1.5" stroke-dasharray="4 4"/>`);
+    parts.push(`<path d="${polyPath(lowerTol)}" fill="none" stroke="#ff4d4d" stroke-width="1.5" stroke-dasharray="4 4"/>`);
+  }
+
+  series.forEach((s) => {
+    const stroke = s.style?.stroke || "black";
+    const width = s.style?.width || 2.2;
+    const dash = s.style?.dash || "";
+
+    parts.push(`
+      <path
+        d="${polyPath(s.y)}"
+        fill="none"
+        stroke="${stroke}"
+        stroke-width="${width}"
+        ${dash ? `stroke-dasharray="${dash}"` : ""}
+      />
+    `);
+
+    s.y.forEach((yy, i) => {
+      const x = xToPx(stationFt[i]);
+      const y = yToPx(yy);
+      parts.push(`<circle cx="${x}" cy="${y}" r="2.4" fill="${stroke}" />`);
+    });
+  });
+
+  parts.push(`
+      <g>
+        <line x1="${margin.l}" y1="${H - 18}" x2="${margin.l + 26}" y2="${H - 18}" stroke="black" stroke-width="2.4"/>
+        <text x="${margin.l + 34}" y="${H - 14}" font-family="Arial" font-size="10">North / Line 1</text>
+
+        <line x1="${margin.l + 140}" y1="${H - 18}" x2="${margin.l + 166}" y2="${H - 18}" stroke="#666" stroke-width="2.2" stroke-dasharray="7 5"/>
+        <text x="${margin.l + 174}" y="${H - 14}" font-family="Arial" font-size="10">South / Line 2</text>
+      </g>
+    </svg>
+  `);
+
+  return parts.join("");
+}
+
+/* ---------------- Markup helpers ---------------- */
+
+function assignFailNumbers(items) {
+  let n = 1;
+  return items.map((item) => {
+    if (!item.pass) {
+      return { ...item, failNo: n++ };
+    }
+    return { ...item, failNo: null };
+  });
+}
+
+function buildFailListBox(x, y, w, title, items) {
+  const rowH = 20;
+  const pad = 8;
+  const titleH = 22;
+  const bodyItems = items.filter((i) => !i.pass);
+  const h = titleH + pad + Math.max(1, bodyItems.length) * rowH + pad;
+
+  let out = `
+    <g>
+      <rect x="${x}" y="${y}" width="${w}" height="${h}" fill="#fffafa" stroke="#c1121f" stroke-width="1.5"/>
+      <text x="${x + 8}" y="${y + 15}" font-family="Arial" font-size="11" font-weight="800" fill="#c1121f">${escHtml(title)}</text>
+  `;
+
+  if (!bodyItems.length) {
+    out += `<text x="${x + 8}" y="${y + 15 + rowH}" font-family="Arial" font-size="10" fill="#111">No failures in this layer.</text>`;
+  } else {
+    bodyItems.forEach((item, idx) => {
+      const yy = y + titleH + pad + idx * rowH;
+      out += `
+        <circle cx="${x + 10}" cy="${yy - 3}" r="7" fill="#c1121f"/>
+        <text x="${x + 10}" y="${yy + 1}" text-anchor="middle" font-family="Arial" font-size="8" font-weight="800" fill="white">${item.failNo}</text>
+        <text x="${x + 24}" y="${yy + 1}" font-family="Arial" font-size="9.5" fill="#111">${escHtml(item.failSummary)}</text>
+      `;
+    });
+  }
+
+  out += `</g>`;
+  return { svg: out, height: h };
+}
+
 /* ---------------- 3-layer markup SVG ---------------- */
 
 function buildThreeLayerMarkupSvgString() {
   const sides = sideConfig();
-  const baselinePts = collectBaselineLayerData();
-  const crossPts = collectCrossLevelLayerData();
-  const spanPts = collectSpanLayerData();
+
+  let baselinePts = collectBaselineLayerData().map((p) => ({
+    ...p,
+    failSummary: `${p.checkLabel} | Meas ${p.valueIn.toFixed(3)} in | Tol ±${p.tolIn.toFixed(3)} | ${p.correctionText}`,
+  }));
+
+  let crossPts = collectCrossLevelLayerData().map((p) => ({
+    ...p,
+    failSummary: `${p.checkLabel} | Meas ${p.valueIn.toFixed(3)} in | Tol ±${p.tolIn.toFixed(3)} | ${p.correctionText}`,
+  }));
+
+  let spanPts = collectSpanLayerData().map((p) => ({
+    ...p,
+    failSummary: `${p.checkLabel} | Meas ${p.valueIn.toFixed(3)} in | Ref ${p.referenceSpanIn.toFixed(3)} | Tol ±${p.tolIn.toFixed(3)} | ${p.correctionText}`,
+  }));
+
+  baselinePts = assignFailNumbers(baselinePts);
+  crossPts = assignFailNumbers(crossPts);
+  spanPts = assignFailNumbers(spanPts);
 
   const allPts = [...baselinePts, ...crossPts, ...spanPts];
   if (!allPts.length) return emptySvg("No markup data available.");
 
-  const W = 1450;
-  const H = 1180;
+  const W = 1500;
+  const H = 1520;
   const marginL = 120;
   const marginR = 40;
   const plotW = W - marginL - marginR;
@@ -758,20 +949,20 @@ function buildThreeLayerMarkupSvgString() {
 
   const xForFt = (ft) => marginL + ((ft - minFt) / spanFt) * plotW;
 
-  const layer1Top = 100;
-  const layer1MidA = 155;
-  const layer1MidB = 230;
-  const layer1Bot = 305;
+  const layer1Top = 98;
+  const layer1North = 160;
+  const layer1South = 235;
+  const layer1ListTop = 295;
 
-  const layer2Top = 380;
-  const layer2North = 445;
-  const layer2South = 560;
-  const layer2Bot = 635;
+  const layer2Top = 520;
+  const layer2North = 585;
+  const layer2South = 700;
+  const layer2ListTop = 770;
 
-  const layer3Top = 715;
-  const layer3North = 785;
-  const layer3South = 930;
-  const layer3Bot = 1095;
+  const layer3Top = 995;
+  const layer3North = 1060;
+  const layer3South = 1175;
+  const layer3ListTop = 1245;
 
   const baselineTol = getBaselineToleranceValue();
   const crossTol = getCrossLevelToleranceValue();
@@ -784,15 +975,12 @@ function buildThreeLayerMarkupSvgString() {
       <marker id="arrowBlack" markerWidth="10" markerHeight="10" refX="5" refY="5" orient="auto-start-reverse">
         <path d="M0,0 L10,5 L0,10 z" fill="black"/>
       </marker>
-      <marker id="arrowRed" markerWidth="12" markerHeight="12" refX="6" refY="6" orient="auto-start-reverse">
-        <path d="M0,0 L12,6 L0,12 z" fill="#c1121f"/>
-      </marker>
     </defs>
 
     <rect x="0" y="0" width="${W}" height="${H}" fill="white"/>
 
     <text x="${marginL}" y="34" font-family="Arial" font-size="24" font-weight="800">TR-13 THREE-LAYER MARKUP DIAGRAM</text>
-    <text x="${marginL}" y="58" font-family="Arial" font-size="13">Red callouts mark out-of-tolerance stations and show correction direction.</text>
+    <text x="${marginL}" y="58" font-family="Arial" font-size="13">Failed stations are marked with red numbered badges. Detailed actions are listed below each layer.</text>
 
     <g>
       <rect x="${marginL}" y="68" width="18" height="12" fill="#c1121f"/>
@@ -800,55 +988,32 @@ function buildThreeLayerMarkupSvgString() {
       <rect x="${marginL + 210}" y="68" width="18" height="12" fill="white" stroke="black" stroke-width="1.5"/>
       <text x="${marginL + 236}" y="79" font-family="Arial" font-size="12">PASS / within tolerance</text>
     </g>
-
-    <g>
-      <rect x="25" y="${layer1Top}" width="${W - 50}" height="${layer1Bot - layer1Top}" fill="#fafafa" stroke="#cfcfcf"/>
-      <text x="40" y="${layer1Top + 24}" font-family="Arial" font-size="20" font-weight="800">LAYER 1 — BASELINE ELEVATION</text>
-      <text x="40" y="${layer1Top + 46}" font-family="Arial" font-size="12">Tolerance: ±${baselineTol.toFixed(3)} in from baseline</text>
-
-      <circle cx="70" cy="${layer1MidA + 7}" r="18" fill="white" stroke="black" stroke-width="2"/>
-      <text x="70" y="${layer1MidA + 12}" text-anchor="middle" font-family="Arial" font-size="16" font-weight="700">${escHtml(sides[0].label[0] || "A")}</text>
-
-      <circle cx="70" cy="${layer1MidB + 7}" r="18" fill="white" stroke="black" stroke-width="2"/>
-      <text x="70" y="${layer1MidB + 12}" text-anchor="middle" font-family="Arial" font-size="16" font-weight="700">${escHtml(sides[1].label[0] || "B")}</text>
-
-      <rect x="${marginL}" y="${layer1MidA}" width="${plotW}" height="14" fill="white" stroke="black" stroke-width="2"/>
-      <rect x="${marginL}" y="${layer1MidB}" width="${plotW}" height="14" fill="white" stroke="black" stroke-width="2"/>
-    </g>
-
-    <g>
-      <rect x="25" y="${layer2Top}" width="${W - 50}" height="${layer2Bot - layer2Top}" fill="#fafafa" stroke="#cfcfcf"/>
-      <text x="40" y="${layer2Top + 24}" font-family="Arial" font-size="20" font-weight="800">LAYER 2 — RAIL TO RAIL</text>
-      <text x="40" y="${layer2Top + 46}" font-family="Arial" font-size="12">Tolerance: ±${crossTol.toFixed(3)} in rail-to-rail</text>
-
-      <circle cx="70" cy="${layer2North + 7}" r="18" fill="white" stroke="black" stroke-width="2"/>
-      <text x="70" y="${layer2North + 12}" text-anchor="middle" font-family="Arial" font-size="16" font-weight="700">${escHtml(sides[0].label[0] || "A")}</text>
-
-      <circle cx="70" cy="${layer2South + 7}" r="18" fill="white" stroke="black" stroke-width="2"/>
-      <text x="70" y="${layer2South + 12}" text-anchor="middle" font-family="Arial" font-size="16" font-weight="700">${escHtml(sides[1].label[0] || "B")}</text>
-
-      <rect x="${marginL}" y="${layer2North}" width="${plotW}" height="14" fill="white" stroke="black" stroke-width="2"/>
-      <rect x="${marginL}" y="${layer2South}" width="${plotW}" height="14" fill="white" stroke="black" stroke-width="2"/>
-    </g>
-
-    <g>
-      <rect x="25" y="${layer3Top}" width="${W - 50}" height="${layer3Bot - layer3Top}" fill="#fafafa" stroke="#cfcfcf"/>
-      <text x="40" y="${layer3Top + 24}" font-family="Arial" font-size="20" font-weight="800">LAYER 3 — SPAN</text>
-      <text x="40" y="${layer3Top + 46}" font-family="Arial" font-size="12">Reference span: ${referenceSpan.toFixed(3)} in ± ${spanTol.toFixed(3)} in</text>
-
-      <circle cx="70" cy="${layer3North + 7}" r="18" fill="white" stroke="black" stroke-width="2"/>
-      <text x="70" y="${layer3North + 12}" text-anchor="middle" font-family="Arial" font-size="16" font-weight="700">${escHtml(sides[0].label[0] || "A")}</text>
-
-      <circle cx="70" cy="${layer3South + 7}" r="18" fill="white" stroke="black" stroke-width="2"/>
-      <text x="70" y="${layer3South + 12}" text-anchor="middle" font-family="Arial" font-size="16" font-weight="700">${escHtml(sides[1].label[0] || "B")}</text>
-
-      <rect x="${marginL}" y="${layer3North}" width="${plotW}" height="14" fill="white" stroke="black" stroke-width="2"/>
-      <rect x="${marginL}" y="${layer3South}" width="${plotW}" height="14" fill="white" stroke="black" stroke-width="2"/>
-    </g>
   `;
 
-  const allUniqueStations = [...new Set(allPts.map((p) => p.stationFt.toFixed(3)))].map(Number).sort((a, b) => a - b);
+  function layerBox(topY, bottomY, title, subtitle, northY, southY) {
+    return `
+      <g>
+        <rect x="25" y="${topY}" width="${W - 50}" height="${bottomY - topY}" fill="#fafafa" stroke="#cfcfcf"/>
+        <text x="40" y="${topY + 24}" font-family="Arial" font-size="20" font-weight="800">${escHtml(title)}</text>
+        <text x="40" y="${topY + 46}" font-family="Arial" font-size="12">${escHtml(subtitle)}</text>
 
+        <circle cx="70" cy="${northY + 7}" r="18" fill="white" stroke="black" stroke-width="2"/>
+        <text x="70" y="${northY + 12}" text-anchor="middle" font-family="Arial" font-size="16" font-weight="700">${escHtml(sides[0].label[0] || "A")}</text>
+
+        <circle cx="70" cy="${southY + 7}" r="18" fill="white" stroke="black" stroke-width="2"/>
+        <text x="70" y="${southY + 12}" text-anchor="middle" font-family="Arial" font-size="16" font-weight="700">${escHtml(sides[1].label[0] || "B")}</text>
+
+        <rect x="${marginL}" y="${northY}" width="${plotW}" height="14" fill="white" stroke="black" stroke-width="2"/>
+        <rect x="${marginL}" y="${southY}" width="${plotW}" height="14" fill="white" stroke="black" stroke-width="2"/>
+      </g>
+    `;
+  }
+
+  svg += layerBox(layer1Top, 490, "LAYER 1 — BASELINE ELEVATION", `Tolerance: ±${baselineTol.toFixed(3)} in from baseline`, layer1North, layer1South);
+  svg += layerBox(layer2Top, 965, "LAYER 2 — RAIL TO RAIL", `Tolerance: ±${crossTol.toFixed(3)} in rail-to-rail`, layer2North, layer2South);
+  svg += layerBox(layer3Top, 1490, "LAYER 3 — SPAN", `Reference span: ${referenceSpan.toFixed(3)} in ± ${spanTol.toFixed(3)} in`, layer3North, layer3South);
+
+  const allUniqueStations = [...new Set(allPts.map((p) => p.stationFt.toFixed(3)))].map(Number).sort((a, b) => a - b);
   allUniqueStations.forEach((ft) => {
     const x = xForFt(ft);
     const txt = `${Math.round(ft)}'`;
@@ -869,32 +1034,25 @@ function buildThreeLayerMarkupSvgString() {
 
   baselinePts.forEach((p) => {
     const x = xForFt(p.stationFt);
-    const yRail = p.sideKey === "sideA" ? layer1MidA + 7 : layer1MidB + 7;
+    const yRail = p.sideKey === "sideA" ? layer1North + 7 : layer1South + 7;
+    const boxY = p.sideKey === "sideA" ? layer1Top + 86 : layer1Top + 160;
     const isFail = !p.pass;
-    const boxY = p.sideKey === "sideA" ? layer1Top + 82 : layer1Top + 155;
-    const valueText = `${p.valueIn.toFixed(3)} in`;
-    const tolText = `Tol ±${p.tolIn.toFixed(3)}`;
 
     svg += `
       <g>
-        <line x1="${x}" y1="${yRail - 18}" x2="${x}" y2="${yRail + 18}" stroke="${isFail ? "#c1121f" : "#111"}" stroke-width="${isFail ? 2.5 : 1.5}"/>
-        <circle cx="${x}" cy="${yRail}" r="${isFail ? 7 : 5}" fill="${isFail ? "#c1121f" : "white"}" stroke="${isFail ? "#c1121f" : "#111"}" stroke-width="2"/>
-        <rect x="${x - 48}" y="${boxY}" width="96" height="34" fill="white" stroke="${isFail ? "#c1121f" : "#111"}" stroke-width="${isFail ? 2.5 : 1.25}"/>
-        <text x="${x}" y="${boxY + 13}" text-anchor="middle" font-family="Arial" font-size="11" font-weight="700" fill="${isFail ? "#c1121f" : "#111"}">${escHtml(valueText)}</text>
-        <text x="${x}" y="${boxY + 27}" text-anchor="middle" font-family="Arial" font-size="9" fill="${isFail ? "#c1121f" : "#111"}">${escHtml(tolText)}</text>
+        <line x1="${x}" y1="${yRail - 18}" x2="${x}" y2="${yRail + 18}" stroke="${isFail ? "#c1121f" : "#111"}" stroke-width="${isFail ? 2.2 : 1.4}"/>
+        <circle cx="${x}" cy="${yRail}" r="${isFail ? 6 : 4.5}" fill="${isFail ? "#c1121f" : "white"}" stroke="${isFail ? "#c1121f" : "#111"}" stroke-width="1.8"/>
+        <rect x="${x - 42}" y="${boxY}" width="84" height="30" fill="white" stroke="${isFail ? "#c1121f" : "#111"}" stroke-width="${isFail ? 1.8 : 1.2}"/>
+        <text x="${x}" y="${boxY + 12}" text-anchor="middle" font-family="Arial" font-size="10.5" font-weight="700" fill="${isFail ? "#c1121f" : "#111"}">${escHtml(p.valueIn.toFixed(3))} in</text>
+        <text x="${x}" y="${boxY + 24}" text-anchor="middle" font-family="Arial" font-size="8.5" fill="${isFail ? "#c1121f" : "#111"}">Tol ±${escHtml(p.tolIn.toFixed(3))}</text>
       </g>
     `;
 
     if (isFail) {
-      const calloutX = Math.min(W - 260, Math.max(180, x + 18));
-      const calloutY = p.sideKey === "sideA" ? layer1Top + 78 : layer1Top + 150;
-
       svg += `
         <g>
-          <line x1="${x + 8}" y1="${yRail}" x2="${calloutX}" y2="${calloutY + 10}" stroke="#c1121f" stroke-width="2" marker-end="url(#arrowRed)"/>
-          <rect x="${calloutX}" y="${calloutY}" width="230" height="46" fill="#fff5f5" stroke="#c1121f" stroke-width="2"/>
-          <text x="${calloutX + 8}" y="${calloutY + 16}" font-family="Arial" font-size="11" font-weight="800" fill="#c1121f">FAIL — ${escHtml(p.checkLabel)}</text>
-          <text x="${calloutX + 8}" y="${calloutY + 32}" font-family="Arial" font-size="10" fill="#c1121f">${escHtml(p.correctionText)}</text>
+          <circle cx="${x}" cy="${yRail - 22}" r="10" fill="#c1121f"/>
+          <text x="${x}" y="${yRail - 18}" text-anchor="middle" font-family="Arial" font-size="10" font-weight="800" fill="white">${p.failNo}</text>
         </g>
       `;
     }
@@ -902,95 +1060,62 @@ function buildThreeLayerMarkupSvgString() {
 
   crossPts.forEach((p) => {
     const x = xForFt(p.stationFt);
-    const isFail = !p.pass;
     const y1 = layer2North + 14;
     const y2 = layer2South;
+    const isFail = !p.pass;
     const label = `${nearestFractionStringInches(p.absValueIn)} (${p.valueIn.toFixed(3)})`;
 
     svg += `
       <g>
-        <line x1="${x}" y1="${y1}" x2="${x}" y2="${y2}" stroke="${isFail ? "#c1121f" : "#111"}" stroke-width="${isFail ? 2.5 : 2}" marker-start="url(#arrowBlack)" marker-end="url(#arrowBlack)"/>
-        <rect x="${x - 40}" y="${(y1 + y2) / 2 - 14}" width="80" height="28" fill="white" stroke="${isFail ? "#c1121f" : "#111"}" stroke-width="${isFail ? 2.5 : 1.5}"/>
-        <text x="${x}" y="${(y1 + y2) / 2 + 5}" text-anchor="middle" font-family="Arial" font-size="11" font-weight="800" fill="${isFail ? "#c1121f" : "#111"}">${escHtml(label)}</text>
+        <line x1="${x}" y1="${y1}" x2="${x}" y2="${y2}" stroke="${isFail ? "#c1121f" : "#111"}" stroke-width="${isFail ? 2.4 : 2}" marker-start="url(#arrowBlack)" marker-end="url(#arrowBlack)"/>
+        <rect x="${x - 48}" y="${(y1 + y2) / 2 - 14}" width="96" height="28" fill="white" stroke="${isFail ? "#c1121f" : "#111"}" stroke-width="${isFail ? 1.8 : 1.2}"/>
+        <text x="${x}" y="${(y1 + y2) / 2 + 5}" text-anchor="middle" font-family="Arial" font-size="10.5" font-weight="700" fill="${isFail ? "#c1121f" : "#111"}">${escHtml(label)}</text>
       </g>
     `;
 
     if (isFail) {
-      const calloutX = Math.min(W - 330, Math.max(180, x + 18));
-      const calloutY = layer2Top + 120;
-
       svg += `
         <g>
-          <line x1="${x + 6}" y1="${(y1 + y2) / 2}" x2="${calloutX}" y2="${calloutY + 12}" stroke="#c1121f" stroke-width="2" marker-end="url(#arrowRed)"/>
-          <rect x="${calloutX}" y="${calloutY}" width="300" height="50" fill="#fff5f5" stroke="#c1121f" stroke-width="2"/>
-          <text x="${calloutX + 8}" y="${calloutY + 17}" font-family="Arial" font-size="11" font-weight="800" fill="#c1121f">FAIL — ${escHtml(p.checkLabel)}</text>
-          <text x="${calloutX + 8}" y="${calloutY + 34}" font-family="Arial" font-size="10" fill="#c1121f">${escHtml(p.correctionText)}</text>
+          <circle cx="${x}" cy="${y1 - 16}" r="10" fill="#c1121f"/>
+          <text x="${x}" y="${y1 - 12}" text-anchor="middle" font-family="Arial" font-size="10" font-weight="800" fill="white">${p.failNo}</text>
         </g>
       `;
     }
   });
-
-  let spanFailIndex = 0;
 
   spanPts.forEach((p) => {
     const x = xForFt(p.stationFt);
-    const isFail = !p.pass;
     const y1 = layer3North + 14;
     const y2 = layer3South;
     const midY = (y1 + y2) / 2;
-    const spanLabel = `${p.valueIn.toFixed(3)} in`;
+    const isFail = !p.pass;
 
     svg += `
       <g>
-        <line x1="${x}" y1="${y1}" x2="${x}" y2="${y2}" stroke="${isFail ? "#c1121f" : "#111"}" stroke-width="${isFail ? 2.5 : 2}" marker-start="url(#arrowBlack)" marker-end="url(#arrowBlack)"/>
-        <rect x="${x - 44}" y="${midY - 16}" width="88" height="32" fill="white" stroke="${isFail ? "#c1121f" : "#111"}" stroke-width="${isFail ? 2.5 : 1.5}"/>
-        <text x="${x}" y="${midY - 1}" text-anchor="middle" font-family="Arial" font-size="11" font-weight="800" fill="${isFail ? "#c1121f" : "#111"}">${escHtml(spanLabel)}</text>
-        <text x="${x}" y="${midY + 12}" text-anchor="middle" font-family="Arial" font-size="9" fill="${isFail ? "#c1121f" : "#111"}">Δ ${escHtml(p.deltaIn.toFixed(3))}</text>
+        <line x1="${x}" y1="${y1}" x2="${x}" y2="${y2}" stroke="${isFail ? "#c1121f" : "#111"}" stroke-width="${isFail ? 2.4 : 2}" marker-start="url(#arrowBlack)" marker-end="url(#arrowBlack)"/>
+        <rect x="${x - 46}" y="${midY - 16}" width="92" height="32" fill="white" stroke="${isFail ? "#c1121f" : "#111"}" stroke-width="${isFail ? 1.8 : 1.2}"/>
+        <text x="${x}" y="${midY - 1}" text-anchor="middle" font-family="Arial" font-size="10.5" font-weight="700" fill="${isFail ? "#c1121f" : "#111"}">${escHtml(p.valueIn.toFixed(3))} in</text>
+        <text x="${x}" y="${midY + 12}" text-anchor="middle" font-family="Arial" font-size="8.5" fill="${isFail ? "#c1121f" : "#111"}">Δ ${escHtml(p.deltaIn.toFixed(3))}</text>
       </g>
     `;
 
     if (isFail) {
-      const lane = spanFailIndex % 4;
-      const side = spanFailIndex % 2 === 0 ? "right" : "left";
-      spanFailIndex += 1;
-
-      const calloutW = 250;
-      const calloutH = 58;
-      const laneYs = [
-        layer3Top + 92,
-        layer3Top + 150,
-        layer3Top + 208,
-        layer3Top + 266,
-      ];
-      const calloutY = laneYs[lane];
-
-      let calloutX;
-      if (side === "right") {
-        calloutX = x + 24;
-        if (calloutX + calloutW > W - 24) calloutX = x - calloutW - 24;
-      } else {
-        calloutX = x - calloutW - 24;
-        if (calloutX < 24) calloutX = x + 24;
-      }
-
-      const lineEndX = side === "right" ? calloutX : calloutX + calloutW;
-      const lineEndY = calloutY + 16;
-
-      const failTitle = `FAIL — ${p.checkLabel}`;
-      const failAction = p.correctionText;
-      const failDetail = `Ref ${p.referenceSpanIn.toFixed(3)} in | Tol ±${p.tolIn.toFixed(3)} in`;
-
       svg += `
         <g>
-          <line x1="${x + (side === "right" ? 6 : -6)}" y1="${midY}" x2="${lineEndX}" y2="${lineEndY}" stroke="#c1121f" stroke-width="2" marker-end="url(#arrowRed)"/>
-          <rect x="${calloutX}" y="${calloutY}" width="${calloutW}" height="${calloutH}" fill="#fff5f5" stroke="#c1121f" stroke-width="2"/>
-          <text x="${calloutX + 8}" y="${calloutY + 16}" font-family="Arial" font-size="10.5" font-weight="800" fill="#c1121f">${escHtml(failTitle)}</text>
-          <text x="${calloutX + 8}" y="${calloutY + 33}" font-family="Arial" font-size="9.5" fill="#c1121f">${escHtml(failAction)}</text>
-          <text x="${calloutX + 8}" y="${calloutY + 48}" font-family="Arial" font-size="9" fill="#c1121f">${escHtml(failDetail)}</text>
+          <circle cx="${x}" cy="${y1 - 16}" r="10" fill="#c1121f"/>
+          <text x="${x}" y="${y1 - 12}" text-anchor="middle" font-family="Arial" font-size="10" font-weight="800" fill="white">${p.failNo}</text>
         </g>
       `;
     }
   });
+
+  const baselineBox = buildFailListBox(70, layer1ListTop, W - 140, "Layer 1 fail list", baselinePts);
+  const crossBox = buildFailListBox(70, layer2ListTop, W - 140, "Layer 2 fail list", crossPts);
+  const spanBox = buildFailListBox(70, layer3ListTop, W - 140, "Layer 3 fail list", spanPts);
+
+  svg += baselineBox.svg;
+  svg += crossBox.svg;
+  svg += spanBox.svg;
 
   svg += `</svg>`;
   return svg;
@@ -1073,153 +1198,6 @@ function collectSurveyTable() {
   return { stationFt, railN, railS, beamN, beamS };
 }
 
-/* ---------------- Chart rendering ---------------- */
-
-function buildChartSvg({ title, subtitleLeft, subtitleRight, stationFt, series, yMin, yMax, tolWindow }) {
-  const W = 1100;
-  const H = 420;
-  const margin = { l: 88, r: 40, t: 64, b: 62 };
-  const plotW = W - margin.l - margin.r;
-  const plotH = H - margin.t - margin.b;
-
-  if (!stationFt || stationFt.length < 2) {
-    return emptySvg("Not enough chart data.");
-  }
-
-  const xMin = Math.min(...stationFt);
-  const xMax = Math.max(...stationFt);
-  const xSpan = Math.max(1e-6, xMax - xMin);
-
-  const maxSeriesAbs = Math.max(
-    Math.abs(yMin || 0),
-    Math.abs(yMax || 0),
-    ...series.flatMap((s) => s.y.map((v) => Math.abs(toNum(v, 0))))
-  );
-
-  let tolAbs = 0;
-  if (tolWindow) {
-    if (tolWindow.type === "constant") {
-      tolAbs = Math.abs(toNum(tolWindow.tolIn, 0));
-    } else if (tolWindow.type === "zones" && Array.isArray(tolWindow.zones)) {
-      tolAbs = Math.max(...tolWindow.zones.map((z) => Math.abs(toNum(z.tolIn, 0))), 0);
-    }
-  }
-
-  const axis = buildNiceCenteredYAxis(Math.max(maxSeriesAbs, tolAbs), 0.1, 0.4);
-  const finalYMin = axis.yMin;
-  const finalYMax = axis.yMax;
-  const yTicks = axis.ticks;
-
-  const xToPx = (x) => margin.l + ((x - xMin) / xSpan) * plotW;
-  const yToPx = (y) => margin.t + (1 - ((y - finalYMin) / (finalYMax - finalYMin))) * plotH;
-
-  function tolAtStation(ft) {
-    if (!tolWindow) return 0;
-
-    if (tolWindow.type === "constant") {
-      return toNum(tolWindow.tolIn, 0);
-    }
-
-    if (tolWindow.type === "zones") {
-      const z = tolWindow.zones.find((zone) => ft >= zone.startFt && ft <= zone.endFt);
-      return z ? toNum(z.tolIn, 0) : (tolWindow.zones[tolWindow.zones.length - 1]?.tolIn ?? 0);
-    }
-
-    return 0;
-  }
-
-  const upperTol = stationFt.map((ft) => tolAtStation(ft));
-  const lowerTol = upperTol.map((v) => -v);
-
-  const polyPath = (arr) =>
-    arr.map((yy, i) => `${i === 0 ? "M" : "L"} ${xToPx(stationFt[i])} ${yToPx(yy)}`).join(" ");
-
-  const parts = [];
-  parts.push(`
-    <svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
-      <rect x="0" y="0" width="${W}" height="${H}" fill="white"/>
-      <text x="${margin.l}" y="28" font-family="Arial" font-size="18" font-weight="800">${escHtml(title)}</text>
-      <text x="${margin.l}" y="48" font-family="Arial" font-size="12">${escHtml(subtitleLeft || "")}</text>
-      <text x="${W - margin.r}" y="48" font-family="Arial" font-size="12" text-anchor="end">${escHtml(subtitleRight || "")}</text>
-
-      <rect x="${margin.l}" y="${margin.t}" width="${plotW}" height="${plotH}" fill="white" stroke="#666" stroke-width="1.2"/>
-  `);
-
-  yTicks.forEach((tick) => {
-    const y = yToPx(tick);
-    const isZero = Math.abs(tick) < 1e-9;
-
-    parts.push(`
-      <line
-        x1="${margin.l}"
-        y1="${y}"
-        x2="${margin.l + plotW}"
-        y2="${y}"
-        stroke="${isZero ? "#444" : "#d9d9d9"}"
-        stroke-width="${isZero ? "1.8" : "1"}"
-      />
-      <text
-        x="${margin.l - 10}"
-        y="${y + 4}"
-        text-anchor="end"
-        font-family="Arial"
-        font-size="10"
-        fill="#666"
-      >${tick.toFixed(1)}</text>
-    `);
-  });
-
-  stationFt.forEach((ft, i) => {
-    const x = xToPx(ft);
-
-    parts.push(`
-      <line x1="${x}" y1="${margin.t + plotH}" x2="${x}" y2="${margin.t + plotH + 6}" stroke="#777" stroke-width="1"/>
-    `);
-
-    const showLabel =
-      stationFt.length <= 14 ||
-      i === 0 ||
-      i === stationFt.length - 1 ||
-      i % 2 === 0;
-
-    if (showLabel) {
-      parts.push(`
-        <text x="${x}" y="${margin.t + plotH + 20}" text-anchor="middle" font-family="Arial" font-size="10" fill="#555">${ft.toFixed(0)}'</text>
-      `);
-    }
-  });
-
-  if (tolWindow) {
-    parts.push(`<path d="${polyPath(upperTol)}" fill="none" stroke="#ff4d4d" stroke-width="1.5" stroke-dasharray="4 4"/>`);
-    parts.push(`<path d="${polyPath(lowerTol)}" fill="none" stroke="#ff4d4d" stroke-width="1.5" stroke-dasharray="4 4"/>`);
-  }
-
-  series.forEach((s) => {
-    const stroke = s.style?.stroke || "black";
-    const width = s.style?.width || 2.2;
-    const dash = s.style?.dash || "";
-
-    parts.push(`
-      <path
-        d="${polyPath(s.y)}"
-        fill="none"
-        stroke="${stroke}"
-        stroke-width="${width}"
-        ${dash ? `stroke-dasharray="${dash}"` : ""}
-      />
-    `);
-
-    s.y.forEach((yy, i) => {
-      const x = xToPx(stationFt[i]);
-      const y = yToPx(yy);
-      parts.push(`<circle cx="${x}" cy="${y}" r="2.2" fill="${stroke}" />`);
-    });
-  });
-
-  parts.push(`</svg>`);
-  return parts.join("");
-}
-
 /* ---------------- Survey evaluation ---------------- */
 
 function evaluateAndRenderSurvey() {
@@ -1271,7 +1249,7 @@ function evaluateAndRenderSurvey() {
     }
     if (pfS) {
       pfS.textContent = sOK ? "PASS" : "FAIL";
-      pfS.style.color = nOK ? "#0a7a2f" : "#c1121f";
+      pfS.style.color = sOK ? "#0a7a2f" : "#c1121f";
     }
     if (rNCell) {
       rNCell.textContent = rateN[i].toFixed(3);
@@ -1292,8 +1270,6 @@ function evaluateAndRenderSurvey() {
       { y: data.railN, style: { stroke: "black", width: 2.4 } },
       { y: data.railS, style: { stroke: "#666", width: 2.2, dash: "7 5" } },
     ],
-    yMin: null,
-    yMax: null,
     tolWindow: { type: "constant", tolIn: tol },
   });
   setSvgInner(straightnessSvgEl, latestStraightnessChartSvg);
@@ -1316,8 +1292,6 @@ function evaluateAndRenderSurvey() {
         { y: eccN, style: { stroke: "black", width: 2.4 } },
         { y: eccS, style: { stroke: "#666", width: 2.2, dash: "7 5" } },
       ],
-      yMin: null,
-      yMax: null,
       tolWindow: eccTolWindow,
     });
     setSvgInner(eccentricitySvgEl, latestEccentricityChartSvg);
