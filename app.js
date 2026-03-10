@@ -63,6 +63,7 @@ let latestRows = [];
 let latestMarkupDiagramSvg = "";
 let latestStraightnessChartSvg = "";
 let latestEccentricityChartSvg = "";
+let latestBeamInputMode = "webFace";
 
 /* ---------------- Required DOM guard ---------------- */
 
@@ -224,6 +225,16 @@ function getBaselineToleranceValue() {
 
 function getCrossLevelToleranceValue() {
   return toNum(document.getElementById("crossLevelTol")?.value, 0.375);
+}
+
+function getBeamInputMode() {
+  return document.getElementById("beamInputReference")?.value || "webFace";
+}
+
+function beamInputModeLabel(mode = getBeamInputMode()) {
+  return mode === "centerline"
+    ? "Beam input basis: Beam centerline entered directly"
+    : "Beam input basis: Beam web face entered; beam centerline = web face + web thickness / 2";
 }
 
 function getTotalRunwayLengthForSide(sideKey) {
@@ -1162,8 +1173,40 @@ function buildSurveyStations() {
     surveyTbody.appendChild(tr);
   }
 
+  if (!document.getElementById("beamInputReference") && surveyTable) {
+    const card = surveyTable.closest(".card");
+    if (card) {
+      const target = beamWebThicknessEl?.closest("label")?.parentElement || card;
+      const wrap = document.createElement("div");
+      wrap.className = "grid two-col";
+      wrap.innerHTML = `
+        <label>
+          Beam input reference
+          <select id="beamInputReference">
+            <option value="centerline">Beam centerline entered directly</option>
+            <option value="webFace" selected>Beam web face entered — convert to centerline using web thickness / 2</option>
+          </select>
+        </label>
+      `;
+      target.insertBefore(wrap, target.firstChild);
+    }
+  }
+
+  const beamRefEl = document.getElementById("beamInputReference");
+  if (beamRefEl && !beamRefEl.dataset.bound) {
+    beamRefEl.dataset.bound = "1";
+    beamRefEl.addEventListener("change", () => {
+      latestBeamInputMode = getBeamInputMode();
+      if (surveyStatusEl) {
+        surveyStatusEl.textContent = `Beam reference updated. ${beamInputModeLabel()}`;
+      }
+    });
+  }
+
+  latestBeamInputMode = getBeamInputMode();
+
   if (surveyStatusEl) {
-    surveyStatusEl.textContent = `Stations built: ${stations.length} rows (${startFt} to ${(startFt + lenFt).toFixed(0)} ft @ ${stepFt} ft).`;
+    surveyStatusEl.textContent = `Stations built: ${stations.length} rows (${startFt} to ${(startFt + lenFt).toFixed(0)} ft @ ${stepFt} ft). ${beamInputModeLabel()}`;
   }
 
   setSvgInner(straightnessSvgEl, emptySvg("Enter station offsets and click Evaluate & Render."));
@@ -1212,6 +1255,9 @@ function evaluateAndRenderSurvey() {
   const useBeam = surveyUseBeamEl?.value === "yes";
   const beamWebThickness = toNum(beamWebThicknessEl?.value, 0);
   const zones = parseZones(eccZonesEl?.value);
+  const beamInputMode = getBeamInputMode();
+
+  latestBeamInputMode = beamInputMode;
 
   const rateN = [];
   const rateS = [];
@@ -1275,8 +1321,16 @@ function evaluateAndRenderSurvey() {
   setSvgInner(straightnessSvgEl, latestStraightnessChartSvg);
 
   if (useBeam) {
-    const beamCenterN = data.beamN.map((v) => toNum(v, 0) + beamWebThickness / 2);
-    const beamCenterS = data.beamS.map((v) => toNum(v, 0) + beamWebThickness / 2);
+    let beamCenterN;
+    let beamCenterS;
+
+    if (beamInputMode === "centerline") {
+      beamCenterN = data.beamN.map((v) => toNum(v, 0));
+      beamCenterS = data.beamS.map((v) => toNum(v, 0));
+    } else {
+      beamCenterN = data.beamN.map((v) => toNum(v, 0) + beamWebThickness / 2);
+      beamCenterS = data.beamS.map((v) => toNum(v, 0) + beamWebThickness / 2);
+    }
 
     const eccN = data.railN.map((v, i) => v - beamCenterN[i]);
     const eccS = data.railS.map((v, i) => v - beamCenterS[i]);
@@ -1284,8 +1338,8 @@ function evaluateAndRenderSurvey() {
     const eccTolWindow = zones ? { type: "zones", zones } : { type: "constant", tolIn: 0.5 };
 
     latestEccentricityChartSvg = buildChartSvg({
-      title: "ECCENTRICITY SURVEY",
-      subtitleLeft: `Beam web thickness applied: ${beamWebThickness.toFixed(3)} in`,
+      title: "BEAM / RAIL ECCENTRICITY SURVEY",
+      subtitleLeft: beamInputModeLabel(beamInputMode),
       subtitleRight: zones ? "Zone tolerances active" : "Default tolerance window shown",
       stationFt: data.stationFt,
       series: [
@@ -1301,7 +1355,7 @@ function evaluateAndRenderSurvey() {
   }
 
   if (surveyStatusEl) {
-    surveyStatusEl.textContent = `Survey evaluated. Straightness: N ${passNAll ? "PASS" : "FAIL"}, S ${passSAll ? "PASS" : "FAIL"}.`;
+    surveyStatusEl.textContent = `Survey evaluated. Straightness: N ${passNAll ? "PASS" : "FAIL"}, S ${passSAll ? "PASS" : "FAIL"}. ${beamInputModeLabel(beamInputMode)}`;
   }
 }
 
@@ -1347,6 +1401,7 @@ function exportPdfReport() {
           h1 { margin: 0 0 6px; }
           .meta { color: #444; margin-bottom: 10px; }
           .box { margin: 14px 0 18px; border: 1px solid #ccc; padding: 10px; border-radius: 8px; page-break-inside: avoid; }
+          .note { font-size: 12px; color: #333; margin-top: 6px; }
         </style>
       </head>
       <body>
@@ -1366,6 +1421,8 @@ function exportPdfReport() {
         <div class="box">
           <h2 style="margin:0 0 8px;">Eccentricity Chart</h2>
           ${latestEccentricityChartSvg || emptySvg("No eccentricity chart rendered yet.")}
+          <div class="note"><strong>${escHtml(beamInputModeLabel(latestBeamInputMode))}</strong></div>
+          <div class="note">Eccentricity equation: Rail Centerline - Beam Centerline</div>
         </div>
 
         <table>
