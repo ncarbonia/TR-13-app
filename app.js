@@ -7,6 +7,7 @@
    - Added Beam Web Thickness for eccentricity calculations
    - Added Span Measurements per measured station distance
    - Span measurements compare to one Reference Span entered once
+   - Survey runway length auto-populates from actual column-to-column distances
    - Straightness and eccentricity charts render on Evaluate
 */
 
@@ -227,6 +228,29 @@ function getSpanToleranceValue() {
   return toNum(document.getElementById("spanTol")?.value, 0.25);
 }
 
+function getTotalRunwayLengthForSide(sideKey) {
+  const columns = toNum(columnsPerSideInput.value, 0);
+  let total = 0;
+
+  for (let segment = 1; segment < columns; segment += 1) {
+    total += getSegmentLengthFt(sideKey, segment);
+  }
+
+  return total;
+}
+
+function autoPopulateSurveyRunwayLength() {
+  if (!surveyRunwayLengthFtEl) return;
+
+  const northTotal = getTotalRunwayLengthForSide("sideA");
+  const southTotal = getTotalRunwayLengthForSide("sideB");
+  const runwayLength = Math.max(northTotal, southTotal);
+
+  if (runwayLength > 0) {
+    surveyRunwayLengthFtEl.value = String(runwayLength);
+  }
+}
+
 /* ---------------- Profiles / base form ---------------- */
 
 function buildProfileOptions() {
@@ -377,6 +401,7 @@ function buildLayout() {
 
   bindLayoutLiveCalculations();
   updateRailToRailReadonlyValues();
+  autoPopulateSurveyRunwayLength();
 
   summary.textContent = "Layout built. Enter values, then run compliance check.";
 }
@@ -386,6 +411,7 @@ function bindLayoutLiveCalculations() {
   inputs.forEach((input) => {
     input.addEventListener("input", () => {
       updateRailToRailReadonlyValues();
+      autoPopulateSurveyRunwayLength();
     });
   });
 }
@@ -1175,6 +1201,7 @@ function init() {
   profileSelect.value = Object.keys(profiles)[0];
   renderForm();
   buildLayout();
+  autoPopulateSurveyRunwayLength();
   buildSurveyStations();
 }
 
