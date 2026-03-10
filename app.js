@@ -60,7 +60,7 @@ const eccentricitySvgEl = document.getElementById("eccentricitySvg");
 /* ---------------- State ---------------- */
 
 let latestRows = [];
-let latestCrossLevelDiagramSvg = "";
+let latestMarkupDiagramSvg = "";
 let latestStraightnessChartSvg = "";
 let latestEccentricityChartSvg = "";
 
@@ -138,9 +138,13 @@ function nearestFractionStringInches(valueIn) {
   return best.s;
 }
 
+function fmtIn(v, digits = 3) {
+  return `${toNum(v, 0).toFixed(digits)} in`;
+}
+
 function emptySvg(msg) {
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="360" viewBox="0 0 1100 360">
-    <rect x="0" y="0" width="1100" height="360" fill="white"/>
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="380" viewBox="0 0 1200 380">
+    <rect x="0" y="0" width="1200" height="380" fill="white"/>
     <text x="40" y="60" font-family="Arial" font-size="16" font-weight="700">${escHtml(msg)}</text>
   </svg>`;
 }
@@ -224,6 +228,14 @@ function getSpanToleranceValue() {
   return toNum(document.getElementById("spanTol")?.value, 0.25);
 }
 
+function getBaselineToleranceValue() {
+  return toNum(document.getElementById("baselineTol")?.value, 0.125);
+}
+
+function getCrossLevelToleranceValue() {
+  return toNum(document.getElementById("crossLevelTol")?.value, 0.375);
+}
+
 function getTotalRunwayLengthForSide(sideKey) {
   const columns = toNum(columnsPerSideInput.value, 0);
   let total = 0;
@@ -245,6 +257,45 @@ function autoPopulateSurveyRunwayLength() {
   if (runwayLength > 0) {
     surveyRunwayLengthFtEl.value = String(runwayLength);
   }
+}
+
+function stationLabel(segment, offsetFt) {
+  return `Seg ${segment} @ ${offsetFt} ft`;
+}
+
+function correctionArrowTextBaseline(valueIn, tolIn) {
+  const absVal = Math.abs(valueIn);
+  const excess = Math.max(0, absVal - tolIn);
+  if (excess <= 0) return "WITHIN TOL";
+  if (valueIn > 0) {
+    return `LOWER RAIL ${nearestFractionStringInches(excess)} (${excess.toFixed(3)} in)`;
+  }
+  if (valueIn < 0) {
+    return `RAISE RAIL ${nearestFractionStringInches(excess)} (${excess.toFixed(3)} in)`;
+  }
+  return "CHECK MEASUREMENT";
+}
+
+function correctionArrowTextCrossLevel(valueIn, tolIn, sideAName, sideBName) {
+  const absVal = Math.abs(valueIn);
+  const excess = Math.max(0, absVal - tolIn);
+  if (excess <= 0) return "WITHIN TOL";
+
+  if (valueIn > 0) {
+    return `LOWER ${sideAName} or RAISE ${sideBName} by ${nearestFractionStringInches(excess)} (${excess.toFixed(3)} in)`;
+  }
+  return `LOWER ${sideBName} or RAISE ${sideAName} by ${nearestFractionStringInches(excess)} (${excess.toFixed(3)} in)`;
+}
+
+function correctionArrowTextSpan(measuredSpan, referenceSpan, spanTol) {
+  const delta = measuredSpan - referenceSpan;
+  const absDelta = Math.abs(delta);
+  if (absDelta <= spanTol) return "WITHIN TOL";
+
+  if (delta > 0) {
+    return `SPAN TOO WIDE — MOVE RAILS IN ${nearestFractionStringInches(absDelta)} (${absDelta.toFixed(3)} in total)`;
+  }
+  return `SPAN TOO NARROW — MOVE RAILS OUT ${nearestFractionStringInches(absDelta)} (${absDelta.toFixed(3)} in total)`;
 }
 
 /* ---------------- Profiles / base form ---------------- */
@@ -294,7 +345,6 @@ function buildLayout() {
 
   const sides = sideConfig();
 
-  // Actual distances
   sides.forEach((side) => {
     const fieldset = document.createElement("fieldset");
     fieldset.className = "grid";
@@ -310,7 +360,6 @@ function buildLayout() {
     layoutContainer.appendChild(fieldset);
   });
 
-  // Side elevations
   const sideMeasurements = document.createElement("fieldset");
   sideMeasurements.className = "grid";
   sideMeasurements.innerHTML =
@@ -322,14 +371,13 @@ function buildLayout() {
       stationOffsets(actualDistance, measuredStationDistance).forEach((offset) => {
         const label = document.createElement("label");
         label.innerHTML = `${escHtml(side.label)} Column ${segment} to ${escHtml(side.label)} Column ${segment + 1} elevation from Baseline at ${offset} ft station (in)
-          <input type="number" step="0.1" id="${side.key}_segment_${segment}_station_${offset}" value="0" />`;
+          <input type="number" step="0.001" id="${side.key}_segment_${segment}_station_${offset}" value="0" />`;
         sideMeasurements.appendChild(label);
       });
     }
   });
   layoutContainer.appendChild(sideMeasurements);
 
-  // Rail to Rail
   const railToRailMeasurements = document.createElement("fieldset");
   railToRailMeasurements.className = "grid";
   railToRailMeasurements.innerHTML = `<legend>Rail to Rail Measurements</legend>`;
@@ -349,7 +397,6 @@ function buildLayout() {
   }
   layoutContainer.appendChild(railToRailMeasurements);
 
-  // Span measurements
   const spanMeasurements = document.createElement("fieldset");
   spanMeasurements.className = "grid";
   spanMeasurements.innerHTML = `<legend>Span Measurements — compare each station to one reference span</legend>`;
@@ -363,13 +410,12 @@ function buildLayout() {
     stationOffsets(segmentLen, measuredStationDistance).forEach((offset) => {
       const label = document.createElement("label");
       label.innerHTML = `Span measurement for segment ${segment} at ${offset} ft station (in)
-        <input type="number" step="0.1" id="span_segment_${segment}_station_${offset}" value="0" />`;
+        <input type="number" step="0.001" id="span_segment_${segment}_station_${offset}" value="0" />`;
       spanMeasurements.appendChild(label);
     });
   }
   layoutContainer.appendChild(spanMeasurements);
 
-  // Tolerances
   const tolerances = document.createElement("fieldset");
   tolerances.className = "grid two-col";
   tolerances.innerHTML = `
@@ -377,22 +423,22 @@ function buildLayout() {
 
     <label>
       Reference span (in)
-      <input type="number" step="0.1" min="0" id="referenceSpan" value="1200" />
+      <input type="number" step="0.001" min="0" id="referenceSpan" value="1200" />
     </label>
 
     <label>
       Span tolerance (in)
-      <input type="number" step="0.1" min="0" id="spanTol" value="0.25" />
+      <input type="number" step="0.001" min="0" id="spanTol" value="0.25" />
     </label>
 
     <label>
       Side elevation from Baseline tolerance (in)
-      <input type="number" step="0.1" min="0" id="baselineTol" value="0.125" />
+      <input type="number" step="0.001" min="0" id="baselineTol" value="0.125" />
     </label>
 
     <label>
       Rail to Rail tolerance (in)
-      <input type="number" step="0.1" min="0" id="crossLevelTol" value="0.375" />
+      <input type="number" step="0.001" min="0" id="crossLevelTol" value="0.375" />
     </label>
   `;
   layoutContainer.appendChild(tolerances);
@@ -449,8 +495,8 @@ function evaluateElevationRows() {
   const columns = toNum(columnsPerSideInput.value, 0);
   const measuredStationDistance = toNum(measuredStationDistanceInput.value, 10);
 
-  const baselineTol = toNum(document.getElementById("baselineTol")?.value, 0.125);
-  const railToRailTol = toNum(document.getElementById("crossLevelTol")?.value, 0.375);
+  const baselineTol = getBaselineToleranceValue();
+  const railToRailTol = getCrossLevelToleranceValue();
   const referenceSpan = getReferenceSpanValue();
   const spanTol = getSpanToleranceValue();
 
@@ -461,12 +507,12 @@ function evaluateElevationRows() {
       const actualDistance = getSegmentLengthFt(side.key, segment);
 
       stationOffsets(actualDistance, measuredStationDistance).forEach((offset) => {
-        const elevationFromBaseline = Math.abs(getSideElevationValue(side.key, segment, offset));
-
+        const rawValue = getSideElevationValue(side.key, segment, offset);
+        const elevationFromBaseline = Math.abs(rawValue);
         rows.push({
           check: `${side.label} Column ${segment} to ${side.label} Column ${segment + 1} baseline check at ${offset} ft`,
-          measuredText: `${elevationFromBaseline.toFixed(3)} in from baseline`,
-          allowedText: `≤ ${baselineTol.toFixed(3)} in`,
+          measuredText: `${rawValue.toFixed(3)} in from baseline (${elevationFromBaseline.toFixed(3)} in abs)`,
+          allowedText: `±${baselineTol.toFixed(3)} in`,
           pass: elevationFromBaseline <= baselineTol,
           reference: "TR-13 baseline elevation (TOP OF RAIL)",
         });
@@ -481,11 +527,12 @@ function evaluateElevationRows() {
     );
 
     stationOffsets(segmentLen, measuredStationDistance).forEach((offset) => {
-      const railToRailValue = Math.abs(getRailToRailValue(segment, offset));
+      const rawRailToRail = getRailToRailValue(segment, offset);
+      const railToRailValue = Math.abs(rawRailToRail);
       rows.push({
         check: `${sides[0].label}${segment} to ${sides[1].label}${segment} rail-to-rail at ${offset} ft`,
-        measuredText: `${railToRailValue.toFixed(3)} in rail-to-rail`,
-        allowedText: `≤ ${railToRailTol.toFixed(3)} in`,
+        measuredText: `${rawRailToRail.toFixed(3)} in rail-to-rail (${railToRailValue.toFixed(3)} in abs)`,
+        allowedText: `±${railToRailTol.toFixed(3)} in`,
         pass: railToRailValue <= railToRailTol,
         reference: "TR-13 rail-to-rail check (TOP OF RAIL to TOP OF RAIL)",
       });
@@ -500,13 +547,12 @@ function evaluateElevationRows() {
 
     stationOffsets(segmentLen, measuredStationDistance).forEach((offset) => {
       const measuredSpan = getSpanMeasurementValue(segment, offset);
-      const deviation = Math.abs(measuredSpan - referenceSpan);
-
+      const deviation = measuredSpan - referenceSpan;
       rows.push({
         check: `Span measurement for segment ${segment} at ${offset} ft`,
-        measuredText: `${measuredSpan.toFixed(3)} in measured (${deviation.toFixed(3)} in deviation from reference)`,
+        measuredText: `${measuredSpan.toFixed(3)} in measured (${deviation.toFixed(3)} in vs reference)`,
         allowedText: `${referenceSpan.toFixed(3)} in ± ${spanTol.toFixed(3)} in`,
-        pass: deviation <= spanTol,
+        pass: Math.abs(deviation) <= spanTol,
         reference: "TR-13 span verification against single reference span",
       });
     });
@@ -521,16 +567,16 @@ function suggestionForRow(row) {
   const check = row.check.toLowerCase();
 
   if (check.includes("baseline check")) {
-    return "Adjust rail seat elevation with shims/grout and re-shoot elevations at affected stations.";
+    return "Adjust rail seat elevation with shims or grout. Lower positive high spots and raise negative low spots, then re-shoot elevations.";
   }
   if (check.includes("rail-to-rail")) {
-    return "Correct rail-to-rail difference by raising the low rail or lowering the high rail, then recheck from the same TOP OF RAIL datum.";
+    return "Correct cross-level by lowering the high rail or raising the low rail by the out-of-tolerance amount, then recheck from TOP OF RAIL.";
   }
   if (check.includes("span measurement")) {
-    return "Verify rail gauge against the single reference span, check clip position and rail alignment, then remeasure at the affected station.";
+    return "Correct gauge at the failed station. If span is too wide move rails in; if too narrow move rails out. Verify clips, alignment, and remeasure.";
   }
   if (check.includes("straightness")) {
-    return "Check alignment/stringline and adjust connection points, then remeasure.";
+    return "Check alignment or stringline and adjust connection points, then remeasure.";
   }
 
   return "Review with engineering, correct the source of deviation, and remeasure before acceptance.";
@@ -550,11 +596,55 @@ function renderSuggestions(rows) {
     .join("");
 }
 
-/* ---------------- Diagram ---------------- */
+/* ---------------- 3-layer markup data ---------------- */
 
-function collectRailToRailSeries() {
+function collectBaselineLayerData() {
+  const sides = sideConfig();
   const columns = toNum(columnsPerSideInput.value, 0);
   const measuredStationDistance = toNum(measuredStationDistanceInput.value, 10);
+  const tol = getBaselineToleranceValue();
+
+  const pts = [];
+  const sideOffsets = { sideA: 0, sideB: 0 };
+
+  sides.forEach((side) => {
+    let cumulativeFt = 0;
+    for (let segment = 1; segment < columns; segment += 1) {
+      const actualDistance = getSegmentLengthFt(side.key, segment);
+      const offsets = stationOffsets(actualDistance, measuredStationDistance);
+
+      offsets.forEach((offsetFt) => {
+        const raw = getSideElevationValue(side.key, segment, offsetFt);
+        const absVal = Math.abs(raw);
+        pts.push({
+          family: "baseline",
+          sideKey: side.key,
+          sideLabel: side.label,
+          segment,
+          offsetFt,
+          stationFt: cumulativeFt + offsetFt,
+          valueIn: raw,
+          absValueIn: absVal,
+          tolIn: tol,
+          pass: absVal <= tol,
+          checkLabel: `${side.label} ${stationLabel(segment, offsetFt)}`,
+          correctionText: correctionArrowTextBaseline(raw, tol),
+        });
+      });
+
+      cumulativeFt += actualDistance;
+    }
+    sideOffsets[side.key] = cumulativeFt;
+  });
+
+  return pts;
+}
+
+function collectCrossLevelLayerData() {
+  const sides = sideConfig();
+  const columns = toNum(columnsPerSideInput.value, 0);
+  const measuredStationDistance = toNum(measuredStationDistanceInput.value, 10);
+  const tol = getCrossLevelToleranceValue();
 
   const pts = [];
   let cumulativeFt = 0;
@@ -567,9 +657,19 @@ function collectRailToRailSeries() {
 
     const offsets = stationOffsets(segmentLenFt, measuredStationDistance);
     offsets.forEach((offsetFt) => {
+      const raw = getRailToRailValue(segment, offsetFt);
+      const absVal = Math.abs(raw);
       pts.push({
+        family: "crossLevel",
+        segment,
+        offsetFt,
         stationFt: cumulativeFt + offsetFt,
-        valueIn: getRailToRailValue(segment, offsetFt),
+        valueIn: raw,
+        absValueIn: absVal,
+        tolIn: tol,
+        pass: absVal <= tol,
+        checkLabel: `${sides[0].label}${segment} to ${sides[1].label}${segment} @ ${offsetFt} ft`,
+        correctionText: correctionArrowTextCrossLevel(raw, tol, sides[0].label, sides[1].label),
       });
     });
 
@@ -579,73 +679,278 @@ function collectRailToRailSeries() {
   return pts;
 }
 
-function buildCrossLevelDiagramSvgString() {
+function collectSpanLayerData() {
+  const columns = toNum(columnsPerSideInput.value, 0);
+  const measuredStationDistance = toNum(measuredStationDistanceInput.value, 10);
+  const referenceSpan = getReferenceSpanValue();
+  const spanTol = getSpanToleranceValue();
+
+  const pts = [];
+  let cumulativeFt = 0;
+
+  for (let segment = 1; segment < columns; segment += 1) {
+    const segmentLenFt = Math.min(
+      getSegmentLengthFt("sideA", segment),
+      getSegmentLengthFt("sideB", segment)
+    );
+
+    const offsets = stationOffsets(segmentLenFt, measuredStationDistance);
+    offsets.forEach((offsetFt) => {
+      const measuredSpan = getSpanMeasurementValue(segment, offsetFt);
+      const delta = measuredSpan - referenceSpan;
+      pts.push({
+        family: "span",
+        segment,
+        offsetFt,
+        stationFt: cumulativeFt + offsetFt,
+        valueIn: measuredSpan,
+        deltaIn: delta,
+        tolIn: spanTol,
+        referenceSpanIn: referenceSpan,
+        pass: Math.abs(delta) <= spanTol,
+        checkLabel: `Span Seg ${segment} @ ${offsetFt} ft`,
+        correctionText: correctionArrowTextSpan(measuredSpan, referenceSpan, spanTol),
+      });
+    });
+
+    cumulativeFt += segmentLenFt;
+  }
+
+  return pts;
+}
+
+function allMarkupStations() {
+  const baseline = collectBaselineLayerData();
+  const cross = collectCrossLevelLayerData();
+  const span = collectSpanLayerData();
+  return [...baseline, ...cross, ...span];
+}
+
+/* ---------------- 3-layer markup SVG ---------------- */
+
+function buildThreeLayerMarkupSvgString() {
   const sides = sideConfig();
-  const tol = toNum(document.getElementById("crossLevelTol")?.value, 0.375);
+  const baselinePts = collectBaselineLayerData();
+  const crossPts = collectCrossLevelLayerData();
+  const spanPts = collectSpanLayerData();
 
-  const pts = collectRailToRailSeries();
-  if (!pts.length) return emptySvg("No rail-to-rail data available.");
+  const allPts = [...baselinePts, ...crossPts, ...spanPts];
+  if (!allPts.length) return emptySvg("No markup data available.");
 
-  const W = 1100;
-  const H = 420;
-  const marginL = 110;
-  const marginR = 50;
-  const railTopY = 90;
-  const railBotY = 300;
-  const stationBubbleY = railTopY - 20;
-
-  const minFt = Math.min(...pts.map((p) => p.stationFt));
-  const maxFt = Math.max(...pts.map((p) => p.stationFt));
-  const spanFt = Math.max(1, maxFt - minFt);
+  const W = 1400;
+  const H = 1050;
+  const marginL = 120;
+  const marginR = 40;
   const plotW = W - marginL - marginR;
 
+  const allStations = allPts.map((p) => p.stationFt);
+  const minFt = Math.min(...allStations);
+  const maxFt = Math.max(...allStations);
+  const spanFt = Math.max(1, maxFt - minFt);
+
   const xForFt = (ft) => marginL + ((ft - minFt) / spanFt) * plotW;
-  const fails = pts.map((p) => Math.abs(p.valueIn) > tol);
+
+  const layer1Top = 100;
+  const layer1MidA = 155;
+  const layer1MidB = 230;
+  const layer1Bot = 290;
+
+  const layer2Top = 365;
+  const layer2North = 430;
+  const layer2South = 545;
+  const layer2Bot = 610;
+
+  const layer3Top = 690;
+  const layer3North = 760;
+  const layer3South = 875;
+  const layer3Bot = 940;
+
+  const baselineTol = getBaselineToleranceValue();
+  const crossTol = getCrossLevelToleranceValue();
+  const referenceSpan = getReferenceSpanValue();
+  const spanTol = getSpanToleranceValue();
 
   let svg = `
   <svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
     <defs>
-      <marker id="arr" markerWidth="10" markerHeight="10" refX="5" refY="5" orient="auto-start-reverse">
-        <path d="M0,0 L10,5 L0,10 z" />
+      <marker id="arrowBlack" markerWidth="10" markerHeight="10" refX="5" refY="5" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="black"/>
+      </marker>
+      <marker id="arrowRed" markerWidth="12" markerHeight="12" refX="6" refY="6" orient="auto-start-reverse">
+        <path d="M0,0 L12,6 L0,12 z" fill="#c1121f"/>
       </marker>
     </defs>
+
     <rect x="0" y="0" width="${W}" height="${H}" fill="white"/>
 
-    <g>
-      <circle cx="55" cy="${railTopY + 7}" r="18" fill="white" stroke="black" stroke-width="2"/>
-      <text x="55" y="${railTopY + 12}" text-anchor="middle" font-family="Arial" font-size="16" font-weight="700">${escHtml(sides[0].label[0] || "A")}</text>
+    <text x="${marginL}" y="34" font-family="Arial" font-size="24" font-weight="800">TR-13 THREE-LAYER MARKUP DIAGRAM</text>
+    <text x="${marginL}" y="58" font-family="Arial" font-size="13">Red callouts mark out-of-tolerance stations and show correction direction.</text>
 
-      <circle cx="55" cy="${railBotY + 7}" r="18" fill="white" stroke="black" stroke-width="2"/>
-      <text x="55" y="${railBotY + 12}" text-anchor="middle" font-family="Arial" font-size="16" font-weight="700">${escHtml(sides[1].label[0] || "B")}</text>
+    <g>
+      <rect x="${marginL}" y="68" width="18" height="12" fill="#c1121f"/>
+      <text x="${marginL + 24}" y="79" font-family="Arial" font-size="12">FAIL / out of tolerance</text>
+      <rect x="${marginL + 210}" y="68" width="18" height="12" fill="white" stroke="black" stroke-width="1.5"/>
+      <text x="${marginL + 236}" y="79" font-family="Arial" font-size="12">PASS / within tolerance</text>
     </g>
 
-    <rect x="${marginL}" y="${railTopY}" width="${plotW}" height="14" fill="white" stroke="black" stroke-width="2"/>
-    <rect x="${marginL}" y="${railBotY}" width="${plotW}" height="14" fill="white" stroke="black" stroke-width="2"/>
+    <g>
+      <rect x="25" y="${layer1Top}" width="${W - 50}" height="${layer1Bot - layer1Top}" fill="#fafafa" stroke="#cfcfcf"/>
+      <text x="40" y="${layer1Top + 24}" font-family="Arial" font-size="20" font-weight="800">LAYER 1 — BASELINE ELEVATION</text>
+      <text x="40" y="${layer1Top + 46}" font-family="Arial" font-size="12">Tolerance: ±${baselineTol.toFixed(3)} in from baseline</text>
 
-    <text x="${marginL}" y="32" font-family="Arial" font-size="18" font-weight="800">RAIL TO RAIL MARKUP</text>
-    <text x="${marginL}" y="54" font-family="Arial" font-size="12">Tolerance: ≤ ${tol.toFixed(3)} in (TR-13)</text>
+      <circle cx="70" cy="${layer1MidA + 7}" r="18" fill="white" stroke="black" stroke-width="2"/>
+      <text x="70" y="${layer1MidA + 12}" text-anchor="middle" font-family="Arial" font-size="16" font-weight="700">${escHtml(sides[0].label[0] || "A")}</text>
+
+      <circle cx="70" cy="${layer1MidB + 7}" r="18" fill="white" stroke="black" stroke-width="2"/>
+      <text x="70" y="${layer1MidB + 12}" text-anchor="middle" font-family="Arial" font-size="16" font-weight="700">${escHtml(sides[1].label[0] || "B")}</text>
+
+      <rect x="${marginL}" y="${layer1MidA}" width="${plotW}" height="14" fill="white" stroke="black" stroke-width="2"/>
+      <rect x="${marginL}" y="${layer1MidB}" width="${plotW}" height="14" fill="white" stroke="black" stroke-width="2"/>
+    </g>
+
+    <g>
+      <rect x="25" y="${layer2Top}" width="${W - 50}" height="${layer2Bot - layer2Top}" fill="#fafafa" stroke="#cfcfcf"/>
+      <text x="40" y="${layer2Top + 24}" font-family="Arial" font-size="20" font-weight="800">LAYER 2 — RAIL TO RAIL</text>
+      <text x="40" y="${layer2Top + 46}" font-family="Arial" font-size="12">Tolerance: ±${crossTol.toFixed(3)} in rail-to-rail</text>
+
+      <circle cx="70" cy="${layer2North + 7}" r="18" fill="white" stroke="black" stroke-width="2"/>
+      <text x="70" y="${layer2North + 12}" text-anchor="middle" font-family="Arial" font-size="16" font-weight="700">${escHtml(sides[0].label[0] || "A")}</text>
+
+      <circle cx="70" cy="${layer2South + 7}" r="18" fill="white" stroke="black" stroke-width="2"/>
+      <text x="70" y="${layer2South + 12}" text-anchor="middle" font-family="Arial" font-size="16" font-weight="700">${escHtml(sides[1].label[0] || "B")}</text>
+
+      <rect x="${marginL}" y="${layer2North}" width="${plotW}" height="14" fill="white" stroke="black" stroke-width="2"/>
+      <rect x="${marginL}" y="${layer2South}" width="${plotW}" height="14" fill="white" stroke="black" stroke-width="2"/>
+    </g>
+
+    <g>
+      <rect x="25" y="${layer3Top}" width="${W - 50}" height="${layer3Bot - layer3Top}" fill="#fafafa" stroke="#cfcfcf"/>
+      <text x="40" y="${layer3Top + 24}" font-family="Arial" font-size="20" font-weight="800">LAYER 3 — SPAN</text>
+      <text x="40" y="${layer3Top + 46}" font-family="Arial" font-size="12">Reference span: ${referenceSpan.toFixed(3)} in ± ${spanTol.toFixed(3)} in</text>
+
+      <circle cx="70" cy="${layer3North + 7}" r="18" fill="white" stroke="black" stroke-width="2"/>
+      <text x="70" y="${layer3North + 12}" text-anchor="middle" font-family="Arial" font-size="16" font-weight="700">${escHtml(sides[0].label[0] || "A")}</text>
+
+      <circle cx="70" cy="${layer3South + 7}" r="18" fill="white" stroke="black" stroke-width="2"/>
+      <text x="70" y="${layer3South + 12}" text-anchor="middle" font-family="Arial" font-size="16" font-weight="700">${escHtml(sides[1].label[0] || "B")}</text>
+
+      <rect x="${marginL}" y="${layer3North}" width="${plotW}" height="14" fill="white" stroke="black" stroke-width="2"/>
+      <rect x="${marginL}" y="${layer3South}" width="${plotW}" height="14" fill="white" stroke="black" stroke-width="2"/>
+    </g>
   `;
 
-  pts.forEach((p, i) => {
+  const seenStationLabels = new Set();
+
+  const allUniqueStations = [...new Set(allPts.map((p) => p.stationFt.toFixed(3)))].map(Number).sort((a, b) => a - b);
+  allUniqueStations.forEach((ft) => {
+    const x = xForFt(ft);
+    const txt = `${Math.round(ft)}'`;
+    if (!seenStationLabels.has(txt)) {
+      svg += `
+        <g>
+          <circle cx="${x}" cy="${layer1Top + 70}" r="11" fill="white" stroke="black" stroke-width="1.5"/>
+          <text x="${x}" y="${layer1Top + 74}" text-anchor="middle" font-family="Arial" font-size="9" font-weight="700">${txt}</text>
+
+          <circle cx="${x}" cy="${layer2Top + 70}" r="11" fill="white" stroke="black" stroke-width="1.5"/>
+          <text x="${x}" y="${layer2Top + 74}" text-anchor="middle" font-family="Arial" font-size="9" font-weight="700">${txt}</text>
+
+          <circle cx="${x}" cy="${layer3Top + 70}" r="11" fill="white" stroke="black" stroke-width="1.5"/>
+          <text x="${x}" y="${layer3Top + 74}" text-anchor="middle" font-family="Arial" font-size="9" font-weight="700">${txt}</text>
+        </g>
+      `;
+      seenStationLabels.add(txt);
+    }
+  });
+
+  baselinePts.forEach((p) => {
     const x = xForFt(p.stationFt);
-    const y1 = railTopY + 14;
-    const y2 = railBotY;
-    const isFail = fails[i];
-    const label = nearestFractionStringInches(Math.abs(p.valueIn));
+    const yRail = p.sideKey === "sideA" ? layer1MidA + 7 : layer1MidB + 7;
+    const isFail = !p.pass;
+    const boxY = p.sideKey === "sideA" ? layer1Top + 82 : layer1Top + 155;
+    const valueText = `${p.valueIn.toFixed(3)} in`;
+    const tolText = `Tol ±${p.tolIn.toFixed(3)}`;
 
     svg += `
       <g>
-        <circle cx="${x}" cy="${stationBubbleY}" r="12" fill="white" stroke="black" stroke-width="2"/>
-        <text x="${x}" y="${stationBubbleY + 4}" text-anchor="middle" font-family="Arial" font-size="10" font-weight="700">${Math.round(p.stationFt)}'</text>
-
-        <line x1="${x}" y1="${y1}" x2="${x}" y2="${y2}" stroke="black" stroke-width="2" marker-start="url(#arr)" marker-end="url(#arr)"/>
-
-        <rect x="${x - 30}" y="${(y1 + y2) / 2 - 12}" width="60" height="24"
-              fill="white" stroke="${isFail ? "red" : "black"}" stroke-width="${isFail ? 2.5 : 1.5}"/>
-        <text x="${x}" y="${(y1 + y2) / 2 + 6}" text-anchor="middle"
-              font-family="Arial" font-size="12" font-weight="800" fill="${isFail ? "red" : "black"}">${escHtml(label)}</text>
+        <line x1="${x}" y1="${yRail - 18}" x2="${x}" y2="${yRail + 18}" stroke="${isFail ? "#c1121f" : "#111"}" stroke-width="${isFail ? 2.5 : 1.5}"/>
+        <circle cx="${x}" cy="${yRail}" r="${isFail ? 7 : 5}" fill="${isFail ? "#c1121f" : "white"}" stroke="${isFail ? "#c1121f" : "#111"}" stroke-width="2"/>
+        <rect x="${x - 48}" y="${boxY}" width="96" height="34" fill="white" stroke="${isFail ? "#c1121f" : "#111"}" stroke-width="${isFail ? 2.5 : 1.25}"/>
+        <text x="${x}" y="${boxY + 13}" text-anchor="middle" font-family="Arial" font-size="11" font-weight="700" fill="${isFail ? "#c1121f" : "#111"}">${escHtml(valueText)}</text>
+        <text x="${x}" y="${boxY + 27}" text-anchor="middle" font-family="Arial" font-size="9" fill="${isFail ? "#c1121f" : "#111"}">${escHtml(tolText)}</text>
       </g>
     `;
+
+    if (isFail) {
+      const calloutX = Math.min(W - 260, Math.max(180, x + 18));
+      const calloutY = p.sideKey === "sideA" ? layer1Top + 78 : layer1Top + 150;
+      svg += `
+        <g>
+          <line x1="${x + 8}" y1="${yRail}" x2="${calloutX}" y2="${calloutY + 10}" stroke="#c1121f" stroke-width="2" marker-end="url(#arrowRed)"/>
+          <rect x="${calloutX}" y="${calloutY}" width="230" height="46" fill="#fff5f5" stroke="#c1121f" stroke-width="2"/>
+          <text x="${calloutX + 8}" y="${calloutY + 16}" font-family="Arial" font-size="11" font-weight="800" fill="#c1121f">FAIL — ${escHtml(p.checkLabel)}</text>
+          <text x="${calloutX + 8}" y="${calloutY + 32}" font-family="Arial" font-size="10" fill="#c1121f">${escHtml(p.correctionText)}</text>
+        </g>
+      `;
+    }
+  });
+
+  crossPts.forEach((p) => {
+    const x = xForFt(p.stationFt);
+    const isFail = !p.pass;
+    const y1 = layer2North + 14;
+    const y2 = layer2South;
+    const label = `${nearestFractionStringInches(p.absValueIn)} (${p.valueIn.toFixed(3)})`;
+
+    svg += `
+      <g>
+        <line x1="${x}" y1="${y1}" x2="${x}" y2="${y2}" stroke="${isFail ? "#c1121f" : "#111"}" stroke-width="${isFail ? 2.5 : 2}" marker-start="url(#arrowBlack)" marker-end="url(#arrowBlack)"/>
+        <rect x="${x - 40}" y="${(y1 + y2) / 2 - 14}" width="80" height="28" fill="white" stroke="${isFail ? "#c1121f" : "#111"}" stroke-width="${isFail ? 2.5 : 1.5}"/>
+        <text x="${x}" y="${(y1 + y2) / 2 + 5}" text-anchor="middle" font-family="Arial" font-size="11" font-weight="800" fill="${isFail ? "#c1121f" : "#111"}">${escHtml(label)}</text>
+      </g>
+    `;
+
+    if (isFail) {
+      const calloutX = Math.min(W - 330, Math.max(180, x + 18));
+      const calloutY = layer2Top + 120;
+      svg += `
+        <g>
+          <line x1="${x + 6}" y1="${(y1 + y2) / 2}" x2="${calloutX}" y2="${calloutY + 12}" stroke="#c1121f" stroke-width="2" marker-end="url(#arrowRed)"/>
+          <rect x="${calloutX}" y="${calloutY}" width="300" height="50" fill="#fff5f5" stroke="#c1121f" stroke-width="2"/>
+          <text x="${calloutX + 8}" y="${calloutY + 17}" font-family="Arial" font-size="11" font-weight="800" fill="#c1121f">FAIL — ${escHtml(p.checkLabel)}</text>
+          <text x="${calloutX + 8}" y="${calloutY + 34}" font-family="Arial" font-size="10" fill="#c1121f">${escHtml(p.correctionText)}</text>
+        </g>
+      `;
+    }
+  });
+
+  spanPts.forEach((p) => {
+    const x = xForFt(p.stationFt);
+    const isFail = !p.pass;
+    const y1 = layer3North + 14;
+    const y2 = layer3South;
+    const spanLabel = `${p.valueIn.toFixed(3)} in`;
+
+    svg += `
+      <g>
+        <line x1="${x}" y1="${y1}" x2="${x}" y2="${y2}" stroke="${isFail ? "#c1121f" : "#111"}" stroke-width="${isFail ? 2.5 : 2}" marker-start="url(#arrowBlack)" marker-end="url(#arrowBlack)"/>
+        <rect x="${x - 44}" y="${(y1 + y2) / 2 - 16}" width="88" height="32" fill="white" stroke="${isFail ? "#c1121f" : "#111"}" stroke-width="${isFail ? 2.5 : 1.5}"/>
+        <text x="${x}" y="${(y1 + y2) / 2 - 1}" text-anchor="middle" font-family="Arial" font-size="11" font-weight="800" fill="${isFail ? "#c1121f" : "#111"}">${escHtml(spanLabel)}</text>
+        <text x="${x}" y="${(y1 + y2) / 2 + 12}" text-anchor="middle" font-family="Arial" font-size="9" fill="${isFail ? "#c1121f" : "#111"}">Δ ${escHtml(p.deltaIn.toFixed(3))}</text>
+      </g>
+    `;
+
+    if (isFail) {
+      const calloutX = Math.min(W - 350, Math.max(180, x + 18));
+      const calloutY = layer3Top + 120;
+      svg += `
+        <g>
+          <line x1="${x + 6}" y1="${(y1 + y2) / 2}" x2="${calloutX}" y2="${calloutY + 12}" stroke="#c1121f" stroke-width="2" marker-end="url(#arrowRed)"/>
+          <rect x="${calloutX}" y="${calloutY}" width="320" height="52" fill="#fff5f5" stroke="#c1121f" stroke-width="2"/>
+          <text x="${calloutX + 8}" y="${calloutY + 17}" font-family="Arial" font-size="11" font-weight="800" fill="#c1121f">FAIL — ${escHtml(p.checkLabel)}</text>
+          <text x="${calloutX + 8}" y="${calloutY + 34}" font-family="Arial" font-size="10" fill="#c1121f">${escHtml(p.correctionText)}</text>
+        </g>
+      `;
+    }
   });
 
   svg += `</svg>`;
@@ -759,11 +1064,11 @@ function buildChartSvg({ title, subtitleLeft, subtitleRight, stationFt, series, 
   const lower = upper.map((v) => -v);
 
   const parts = [];
-  parts.push(`<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
-    <rect x="0" y="0" width="${W}" height="${H}" fill="white"/>
+  parts.push(`<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="360" viewBox="0 0 1100 360">
+    <rect x="0" y="0" width="1100" height="360" fill="white"/>
     <text x="${margin.l}" y="26" font-family="Arial" font-size="18" font-weight="800">${escHtml(title)}</text>
     <text x="${margin.l}" y="46" font-family="Arial" font-size="12">${escHtml(subtitleLeft || "")}</text>
-    <text x="${W - margin.r}" y="46" font-family="Arial" font-size="12" text-anchor="end">${escHtml(subtitleRight || "")}</text>
+    <text x="${1100 - margin.r}" y="46" font-family="Arial" font-size="12" text-anchor="end">${escHtml(subtitleRight || "")}</text>
     <rect x="${margin.l}" y="${margin.t}" width="${plotW}" height="${plotH}" fill="white" stroke="black" stroke-width="1"/>
   `);
 
@@ -779,7 +1084,7 @@ function buildChartSvg({ title, subtitleLeft, subtitleRight, stationFt, series, 
     const stroke = s.style?.stroke || "black";
     const width = s.style?.width || 2.5;
     const dash = s.style?.dash || "";
-    parts.push(`<path d="${polyPath(s.y)}" fill="none" stroke="${stroke}" stroke-width="${width}" ${dash ? `stroke-dasharray="${dash}"` : ""}/>`);  
+    parts.push(`<path d="${polyPath(s.y)}" fill="none" stroke="${stroke}" stroke-width="${width}" ${dash ? `stroke-dasharray="${dash}"` : ""}/>`);
   });
 
   parts.push(`</svg>`);
@@ -911,7 +1216,7 @@ function exportPdfReport() {
     return;
   }
 
-  latestCrossLevelDiagramSvg = buildCrossLevelDiagramSvgString();
+  latestMarkupDiagramSvg = buildThreeLayerMarkupSvgString();
 
   const projectName = document.getElementById("projectName")?.value || "Unnamed Project";
   const generatedAt = new Date().toLocaleString();
@@ -944,7 +1249,7 @@ function exportPdfReport() {
           th, td { border: 1px solid #ccc; padding: 6px; text-align: left; font-size: 12px; vertical-align: top; }
           h1 { margin: 0 0 6px; }
           .meta { color: #444; margin-bottom: 10px; }
-          .box { margin: 14px 0 18px; border: 1px solid #ccc; padding: 10px; border-radius: 8px; }
+          .box { margin: 14px 0 18px; border: 1px solid #ccc; padding: 10px; border-radius: 8px; page-break-inside: avoid; }
         </style>
       </head>
       <body>
@@ -952,8 +1257,8 @@ function exportPdfReport() {
         <div class="meta"><strong>Project:</strong> ${escHtml(projectName)}<br><strong>Generated:</strong> ${escHtml(generatedAt)}</div>
 
         <div class="box">
-          <h2 style="margin:0 0 8px;">Rail to Rail Markup Diagram</h2>
-          ${latestCrossLevelDiagramSvg}
+          <h2 style="margin:0 0 8px;">Three-Layer Markup Diagram</h2>
+          ${latestMarkupDiagramSvg}
         </div>
 
         <div class="box">
@@ -1022,7 +1327,7 @@ function runCompliance() {
   `).join("");
 
   summary.textContent = `${passed} of ${rows.length} checks passed for profile: ${profileSelect.value || "Default"}.`;
-  latestCrossLevelDiagramSvg = buildCrossLevelDiagramSvgString();
+  latestMarkupDiagramSvg = buildThreeLayerMarkupSvgString();
 }
 
 /* ---------------- Fractions Toggle ---------------- */
