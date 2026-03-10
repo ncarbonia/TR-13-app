@@ -7,7 +7,7 @@
 
   <link rel="manifest" href="./manifest.webmanifest" />
   <link rel="icon" href="data:," />
-  <title>Big G Steel LLC - TR-13 Crane Tolerance Checker</title>
+  <title>Big G Steel - TR-13 Crane Tolerance Checker</title>
 
   <link rel="stylesheet" href="./style.css" />
 </head>
@@ -15,7 +15,7 @@
 <body>
   <header class="pageHeader">
     <div class="titleStack">
-      <div class="titleLine">Big G Steel LLC</div>
+      <div class="titleLine">Big G Steel</div>
       <div class="titleLine">Overhead Crane Installation Tolerance Checker</div>
       <div class="titleLine">TR-13 / CMAA Field Check</div>
     </div>
@@ -42,7 +42,6 @@
     <section class="card">
       <h2>Column Layout &amp; Station Setup</h2>
 
-      <!-- Fractions → Decimals reference (sticky on desktop, non-sticky on mobile) -->
       <section class="card fracCard fracSticky" id="fracSticky">
         <div class="fracHeader">
           <div>
@@ -50,7 +49,6 @@
             <div class="fracSubtle">Quick shim reference (inches)</div>
           </div>
 
-          <!-- Toggle -->
           <button id="fracToggle" class="fracToggle" type="button"
                   aria-controls="fracBody" aria-expanded="false">
             Show
@@ -59,7 +57,6 @@
 
         <div class="fracBody" id="fracBody" hidden>
           <div class="fracGrid3" aria-label="Fractions to decimals chart">
-            <!-- Column 1 -->
             <div class="fracRow"><span>1/32</span><span>=</span><span>0.03125</span></div>
             <div class="fracRow"><span>1/16</span><span>=</span><span>0.06250</span></div>
             <div class="fracRow"><span>3/32</span><span>=</span><span>0.09375</span></div>
@@ -77,7 +74,6 @@
             <div class="fracRow"><span>15/32</span><span>=</span><span>0.46875</span></div>
             <div class="fracRow"><span>1/2</span><span>=</span><span>0.50000</span></div>
 
-            <!-- Column 2 -->
             <div class="fracRow"><span>17/32</span><span>=</span><span>0.53125</span></div>
             <div class="fracRow"><span>9/16</span><span>=</span><span>0.56250</span></div>
             <div class="fracRow"><span>19/32</span><span>=</span><span>0.59375</span></div>
@@ -95,7 +91,6 @@
             <div class="fracRow"><span>31/32</span><span>=</span><span>0.96875</span></div>
             <div class="fracRow"><span>1</span><span>=</span><span>1.00000</span></div>
 
-            <!-- Column 3 (most-used quick set) -->
             <div class="fracRow fracQuick"><span>1/8</span><span>=</span><span>0.125</span></div>
             <div class="fracRow fracQuick"><span>3/16</span><span>=</span><span>0.1875</span></div>
             <div class="fracRow fracQuick"><span>1/4</span><span>=</span><span>0.25</span></div>
@@ -139,7 +134,7 @@
       <div id="layoutContainer" class="stack"></div>
 
       <p class="subtle">
-        Enter designed and actual column-to-column distances. The app uses measured station distance to generate station points.
+        Enter actual column-to-column distances. The app uses measured station distance to generate station points.
       </p>
     </section>
 
@@ -157,7 +152,7 @@
 
       <p class="subtle">
         Stations auto-populate. Enter <strong>horizontal offsets</strong> in inches at each station.
-        This produces straightness and eccentricity charts (survey-style) plus PASS/FAIL.
+        This produces straightness and eccentricity charts plus PASS/FAIL.
       </p>
 
       <div class="grid three-col">
@@ -194,6 +189,13 @@
             <option value="no" selected>No (straightness only)</option>
             <option value="yes">Yes (straightness + eccentricity)</option>
           </select>
+        </label>
+      </div>
+
+      <div class="grid two-col">
+        <label class="field">
+          <span class="labelText">Beam Web Thickness (in)</span>
+          <input id="beamWebThickness" type="number" step="any" value="0.500" />
         </label>
       </div>
 
