@@ -6,7 +6,8 @@
    - Removed designed measurement inputs from layout builder
    - Added Beam Web Thickness for eccentricity calculations
    - Added Span Measurements per measured station distance
-   - Straightness and eccentricity charts now render on Evaluate
+   - Span measurements compare to one Reference Span entered once
+   - Straightness and eccentricity charts render on Evaluate
 */
 
 const profiles = {
@@ -214,6 +215,18 @@ function getRailToRailValue(segment, offsetFt) {
   return a - b;
 }
 
+function getSpanMeasurementValue(segment, offsetFt) {
+  return toNum(document.getElementById(`span_segment_${segment}_station_${offsetFt}`)?.value, 0);
+}
+
+function getReferenceSpanValue() {
+  return toNum(document.getElementById("referenceSpan")?.value, 0);
+}
+
+function getSpanToleranceValue() {
+  return toNum(document.getElementById("spanTol")?.value, 0.25);
+}
+
 /* ---------------- Profiles / base form ---------------- */
 
 function buildProfileOptions() {
@@ -297,8 +310,7 @@ function buildLayout() {
   // Rail-to-rail auto-calculated values
   const railToRailMeasurements = document.createElement("fieldset");
   railToRailMeasurements.className = "grid";
-  railToRailMeasurements.innerHTML =
-    `<legend>Rail to Rail Measurements</legend>`;
+  railToRailMeasurements.innerHTML = `<legend>Rail to Rail Measurements</legend>`;
 
   for (let segment = 1; segment < columns; segment += 1) {
     const segmentLen = Math.min(
@@ -318,7 +330,7 @@ function buildLayout() {
   // Span measurements
   const spanMeasurements = document.createElement("fieldset");
   spanMeasurements.className = "grid";
-  spanMeasurements.innerHTML = `<legend>Span Measurements — measured station distance points</legend>`;
+  spanMeasurements.innerHTML = `<legend>Span Measurements — compare each station to one reference span</legend>`;
 
   for (let segment = 1; segment < columns; segment += 1) {
     const segmentLen = Math.min(
@@ -335,15 +347,27 @@ function buildLayout() {
   }
   layoutContainer.append(spanMeasurements);
 
-  // Tolerances
+  // Tolerances and reference values
   const tolerances = document.createElement("fieldset");
   tolerances.className = "grid two-col";
   tolerances.innerHTML = `
     <legend>TR-13 checks and tolerances</legend>
+
+    <label>
+      Reference span (in)
+      <input type="number" step="0.1" min="0" id="referenceSpan" value="1200" />
+    </label>
+
+    <label>
+      Span tolerance (in)
+      <input type="number" step="0.1" min="0" id="spanTol" value="0.25" />
+    </label>
+
     <label>
       Side elevation from Baseline tolerance (in)
       <input type="number" step="0.1" min="0" id="baselineTol" value="0.125" />
     </label>
+
     <label>
       Rail to Rail tolerance (in)
       <input type="number" step="0.1" min="0" id="crossLevelTol" value="0.375" />
@@ -404,6 +428,8 @@ function evaluateElevationRows() {
 
   const baselineTol = toNum(document.getElementById("baselineTol")?.value, 0.125);
   const railToRailTol = toNum(document.getElementById("crossLevelTol")?.value, 0.375);
+  const referenceSpan = getReferenceSpanValue();
+  const spanTol = getSpanToleranceValue();
 
   const rows = [];
 
@@ -447,6 +473,27 @@ function evaluateElevationRows() {
     });
   }
 
+  // Span checks
+  for (let segment = 1; segment < columns; segment += 1) {
+    const segmentLen = Math.min(
+      getSegmentLengthFt("sideA", segment),
+      getSegmentLengthFt("sideB", segment)
+    );
+
+    stationOffsets(segmentLen, measuredStationDistance).forEach((offset) => {
+      const measuredSpan = getSpanMeasurementValue(segment, offset);
+      const deviation = Math.abs(measuredSpan - referenceSpan);
+
+      rows.push({
+        check: `Span measurement for segment ${segment} at ${offset} ft`,
+        measuredText: `${measuredSpan.toFixed(3)} in measured (${deviation.toFixed(3)} in deviation from reference)`,
+        allowedText: `${referenceSpan.toFixed(3)} in ± ${spanTol.toFixed(3)} in`,
+        pass: deviation <= spanTol,
+        reference: "TR-13 span verification against single reference span",
+      });
+    });
+  }
+
   return rows;
 }
 
@@ -460,6 +507,9 @@ function suggestionForRow(row) {
   }
   if (check.includes("rail-to-rail")) {
     return "Correct rail-to-rail difference by raising the low rail or lowering the high rail, then recheck from the same TOP OF RAIL datum.";
+  }
+  if (check.includes("span measurement")) {
+    return "Verify rail gauge against the single reference span, check clip position and rail alignment, then remeasure at the affected station.";
   }
   if (check.includes("straightness")) {
     return "Check alignment/stringline and adjust connection points, then remeasure.";
