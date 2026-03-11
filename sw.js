@@ -1,6 +1,6 @@
 // sw.js — TR-13-app (GitHub Pages safe)
 
-const CACHE_NAME = "tr13-pwa-v6";
+const CACHE_NAME = "tr13-pwa-v7";
 
 const ASSETS = [
   "./index.html",
