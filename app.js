@@ -455,7 +455,7 @@ function buildLayout() {
     spanMeasurementOffsets(segmentLen, isLastSegment).forEach((offset) => {
       const label = document.createElement("label");
       label.innerHTML = `Span measurement for segment ${segment} at ${offset} ft station (in)
-        <input type="number" step="0.001" id="span_segment_${segment}_station_${offset}" value="0" />`;
+        <input type="number" step="0.1" id="span_segment_${segment}_station_${offset}" value="0" />`;
       spanMeasurements.appendChild(label);
     });
   }
