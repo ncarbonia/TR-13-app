@@ -237,6 +237,16 @@ function beamInputModeLabel(mode = getBeamInputMode()) {
     : "Beam input basis: Beam web face entered; beam centerline = web face + web thickness / 2";
 }
 
+function beamColumnHeaderLabel(mode = getBeamInputMode(), side = "N") {
+  return mode === "centerline" ? `Beam centerline ${side}` : `Beam web face ${side}`;
+}
+
+function beamHelperText(mode = getBeamInputMode()) {
+  return mode === "centerline"
+    ? "Enter measured beam centerline offset at each station."
+    : "Enter measured beam web face offset at each station. App converts to beam centerline using web thickness / 2.";
+}
+
 function getTotalRunwayLengthForSide(sideKey) {
   const columns = toNum(columnsPerSideInput.value, 0);
   let total = 0;
@@ -1134,6 +1144,17 @@ function buildThreeLayerMarkupSvgString() {
 
 /* ---------------- Survey table ---------------- */
 
+function updateBeamInputUiLabels() {
+  const mode = getBeamInputMode();
+  const helperEl = document.getElementById("beamInputHelper");
+  if (helperEl) helperEl.textContent = beamHelperText(mode);
+
+  const northHeader = document.getElementById("beamHeaderN");
+  const southHeader = document.getElementById("beamHeaderS");
+  if (northHeader) northHeader.textContent = beamColumnHeaderLabel(mode, "N");
+  if (southHeader) southHeader.textContent = beamColumnHeaderLabel(mode, "S");
+}
+
 function buildSurveyStations() {
   if (!surveyTbody) return;
 
@@ -1150,11 +1171,65 @@ function buildSurveyStations() {
   const card = surveyTable.closest(".card");
   if (card) card.classList.toggle("beamHidden", !useBeam);
 
+  if (!document.getElementById("beamInputReference") && surveyTable) {
+    const cardEl = surveyTable.closest(".card");
+    if (cardEl) {
+      const topWrap = document.createElement("div");
+      topWrap.className = "grid two-col";
+      topWrap.innerHTML = `
+        <label>
+          Beam input reference
+          <select id="beamInputReference">
+            <option value="centerline">Beam centerline entered directly</option>
+            <option value="webFace" selected>Beam web face entered — convert to centerline using web thickness / 2</option>
+          </select>
+        </label>
+        <div id="beamInputHelper" style="align-self:end; padding:8px 0; color:#444; font-size:12px;">
+          ${escHtml(beamHelperText("webFace"))}
+        </div>
+      `;
+      surveyTable.parentElement.insertBefore(topWrap, surveyTable);
+    }
+  }
+
+  const beamRefEl = document.getElementById("beamInputReference");
+  if (beamRefEl && !beamRefEl.dataset.bound) {
+    beamRefEl.dataset.bound = "1";
+    beamRefEl.addEventListener("change", () => {
+      latestBeamInputMode = getBeamInputMode();
+      updateBeamInputUiLabels();
+      buildSurveyStations();
+    });
+  }
+
+  latestBeamInputMode = getBeamInputMode();
+
   surveyTbody.innerHTML = "";
 
   const stations = [];
   for (let ft = startFt; ft <= startFt + lenFt + 1e-9; ft += stepFt) {
     stations.push(Number(ft.toFixed(3)));
+  }
+
+  const mode = getBeamInputMode();
+  const headerN = beamColumnHeaderLabel(mode, "N");
+  const headerS = beamColumnHeaderLabel(mode, "S");
+
+  const thead = surveyTable.querySelector("thead");
+  if (thead) {
+    thead.innerHTML = `
+      <tr>
+        <th>Station (ft)</th>
+        <th>Rail N</th>
+        <th>Rail S</th>
+        <th class="beamCell" id="beamHeaderN">${escHtml(headerN)}</th>
+        <th class="beamCell" id="beamHeaderS">${escHtml(headerS)}</th>
+        <th>Pass/Fail N</th>
+        <th>Pass/Fail S</th>
+        <th>Rate N</th>
+        <th>Rate S</th>
+      </tr>
+    `;
   }
 
   for (const ft of stations) {
@@ -1173,37 +1248,7 @@ function buildSurveyStations() {
     surveyTbody.appendChild(tr);
   }
 
-  if (!document.getElementById("beamInputReference") && surveyTable) {
-    const card = surveyTable.closest(".card");
-    if (card) {
-      const target = beamWebThicknessEl?.closest("label")?.parentElement || card;
-      const wrap = document.createElement("div");
-      wrap.className = "grid two-col";
-      wrap.innerHTML = `
-        <label>
-          Beam input reference
-          <select id="beamInputReference">
-            <option value="centerline">Beam centerline entered directly</option>
-            <option value="webFace" selected>Beam web face entered — convert to centerline using web thickness / 2</option>
-          </select>
-        </label>
-      `;
-      target.insertBefore(wrap, target.firstChild);
-    }
-  }
-
-  const beamRefEl = document.getElementById("beamInputReference");
-  if (beamRefEl && !beamRefEl.dataset.bound) {
-    beamRefEl.dataset.bound = "1";
-    beamRefEl.addEventListener("change", () => {
-      latestBeamInputMode = getBeamInputMode();
-      if (surveyStatusEl) {
-        surveyStatusEl.textContent = `Beam reference updated. ${beamInputModeLabel()}`;
-      }
-    });
-  }
-
-  latestBeamInputMode = getBeamInputMode();
+  updateBeamInputUiLabels();
 
   if (surveyStatusEl) {
     surveyStatusEl.textContent = `Stations built: ${stations.length} rows (${startFt} to ${(startFt + lenFt).toFixed(0)} ft @ ${stepFt} ft). ${beamInputModeLabel()}`;
