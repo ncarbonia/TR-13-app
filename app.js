@@ -174,12 +174,31 @@ function parseZones(text) {
   return zones.length ? zones : null;
 }
 
+/* FIXED:
+   - includes exact segment end station
+   - also includes non-even remainder end station
+   Examples:
+   60 @ 15 => [0,15,30,45,60]
+   62 @ 15 => [0,15,30,45,60,62]
+*/
 function stationOffsets(segmentDistanceFt, stationDistanceFt) {
   const offsets = [];
-  for (let offset = 0; offset < segmentDistanceFt; offset += stationDistanceFt) {
-    offsets.push(Number(offset.toFixed(3)));
+  const seg = toNum(segmentDistanceFt, 0);
+  const step = toNum(stationDistanceFt, 0);
+
+  if (seg <= 0 || step <= 0) return offsets;
+
+  for (let offset = 0; offset <= seg + 1e-9; offset += step) {
+    const safeOffset = Math.min(offset, seg);
+    offsets.push(Number(safeOffset.toFixed(3)));
   }
-  return offsets;
+
+  const last = offsets[offsets.length - 1];
+  if (Math.abs(last - seg) > 1e-6) {
+    offsets.push(Number(seg.toFixed(3)));
+  }
+
+  return [...new Set(offsets)];
 }
 
 function sideConfig() {
@@ -377,12 +396,14 @@ function buildLayout() {
   const sideMeasurements = document.createElement("fieldset");
   sideMeasurements.className = "grid";
   sideMeasurements.innerHTML =
-    `<legend>Side Elevation from Baseline (TOP OF RAIL) — stations start at 0 ft, then measured station distance</legend>`;
+    `<legend>Side Elevation from Baseline (TOP OF RAIL) — stations include segment end station</legend>`;
 
   sides.forEach((side) => {
     for (let segment = 1; segment < columns; segment += 1) {
       const actualDistance = getSegmentLengthFt(side.key, segment) || 60;
-      stationOffsets(actualDistance, measuredStationDistance).forEach((offset) => {
+      const offsets = stationOffsets(actualDistance, measuredStationDistance);
+
+      offsets.forEach((offset) => {
         const label = document.createElement("label");
         label.innerHTML = `${escHtml(side.label)} Column ${segment} to ${escHtml(side.label)} Column ${segment + 1} elevation from Baseline at ${offset} ft station (in)
           <input type="number" step="0.001" id="${side.key}_segment_${segment}_station_${offset}" value="0" />`;
@@ -1209,6 +1230,12 @@ function buildSurveyStations() {
   const stations = [];
   for (let ft = startFt; ft <= startFt + lenFt + 1e-9; ft += stepFt) {
     stations.push(Number(ft.toFixed(3)));
+  }
+
+  const lastStation = stations[stations.length - 1];
+  const targetEnd = Number((startFt + lenFt).toFixed(3));
+  if (Math.abs((lastStation ?? 0) - targetEnd) > 1e-6) {
+    stations.push(targetEnd);
   }
 
   const mode = getBeamInputMode();
