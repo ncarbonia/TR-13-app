@@ -414,7 +414,7 @@ function buildLayout() {
       offsets.forEach((offset) => {
         const label = document.createElement("label");
         label.innerHTML = `${escHtml(side.label)} Column ${segment} to ${escHtml(side.label)} Column ${segment + 1} elevation from Baseline at ${offset} ft station (in)
-          <input type="number" step="0.001" id="${side.key}_segment_${segment}_station_${offset}" value="0" />`;
+          <input type="number" step="0.05" id="${side.key}_segment_${segment}_station_${offset}" value="0" />`;
         sideMeasurements.appendChild(label);
       });
     }
