@@ -174,13 +174,6 @@ function parseZones(text) {
   return zones.length ? zones : null;
 }
 
-/* FIXED:
-   - includes exact segment end station
-   - also includes non-even remainder end station
-   Examples:
-   60 @ 15 => [0,15,30,45,60]
-   62 @ 15 => [0,15,30,45,60,62]
-*/
 function stationOffsets(segmentDistanceFt, stationDistanceFt) {
   const offsets = [];
   const seg = toNum(segmentDistanceFt, 0);
@@ -199,6 +192,16 @@ function stationOffsets(segmentDistanceFt, stationDistanceFt) {
   }
 
   return [...new Set(offsets)];
+}
+
+/* NEW:
+   span measurements only at start and midpoint of each segment */
+function spanMeasurementOffsets(segmentDistanceFt) {
+  const seg = toNum(segmentDistanceFt, 0);
+  if (seg <= 0) return [];
+
+  const midpoint = Number((seg / 2).toFixed(3));
+  return [...new Set([0, midpoint])];
 }
 
 function sideConfig() {
@@ -434,7 +437,7 @@ function buildLayout() {
 
   const spanMeasurements = document.createElement("fieldset");
   spanMeasurements.className = "grid";
-  spanMeasurements.innerHTML = `<legend>Span Measurements — compare each station to one reference span</legend>`;
+  spanMeasurements.innerHTML = `<legend>Span Measurements — start point and midpoint only for each segment</legend>`;
 
   for (let segment = 1; segment < columns; segment += 1) {
     const segmentLen = Math.min(
@@ -442,7 +445,7 @@ function buildLayout() {
       getSegmentLengthFt("sideB", segment) || 60
     );
 
-    stationOffsets(segmentLen, measuredStationDistance).forEach((offset) => {
+    spanMeasurementOffsets(segmentLen).forEach((offset) => {
       const label = document.createElement("label");
       label.innerHTML = `Span measurement for segment ${segment} at ${offset} ft station (in)
         <input type="number" step="0.001" id="span_segment_${segment}_station_${offset}" value="0" />`;
@@ -582,7 +585,7 @@ function evaluateElevationRows() {
       getSegmentLengthFt("sideB", segment)
     );
 
-    stationOffsets(segmentLen, measuredStationDistance).forEach((offset) => {
+    spanMeasurementOffsets(segmentLen).forEach((offset) => {
       const measuredSpan = getSpanMeasurementValue(segment, offset);
       const deviation = measuredSpan - referenceSpan;
 
@@ -611,7 +614,7 @@ function suggestionForRow(row) {
     return "Correct cross-level by lowering the high rail or raising the low rail by the out-of-tolerance amount, then recheck from TOP OF RAIL.";
   }
   if (check.includes("span measurement")) {
-    return "Correct gauge at the failed station. If span is too wide move rails in; if too narrow move rails out. Verify clips, alignment, and remeasure.";
+    return "Correct gauge at the failed point. If span is too wide move rails in; if too narrow move rails out. Verify clips, alignment, and remeasure.";
   }
   if (check.includes("straightness")) {
     return "Check alignment or stringline and adjust connection points, then remeasure.";
@@ -719,7 +722,6 @@ function collectCrossLevelLayerData() {
 
 function collectSpanLayerData() {
   const columns = toNum(columnsPerSideInput.value, 0);
-  const measuredStationDistance = toNum(measuredStationDistanceInput.value, 10);
   const referenceSpan = getReferenceSpanValue();
   const spanTol = getSpanToleranceValue();
 
@@ -732,9 +734,7 @@ function collectSpanLayerData() {
       getSegmentLengthFt("sideB", segment)
     );
 
-    const offsets = stationOffsets(segmentLenFt, measuredStationDistance);
-
-    offsets.forEach((offsetFt) => {
+    spanMeasurementOffsets(segmentLenFt).forEach((offsetFt) => {
       const measuredSpan = getSpanMeasurementValue(segment, offsetFt);
       const delta = measuredSpan - referenceSpan;
       pts.push({
