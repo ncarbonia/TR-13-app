@@ -194,14 +194,19 @@ function stationOffsets(segmentDistanceFt, stationDistanceFt) {
   return [...new Set(offsets)];
 }
 
-/* NEW:
-   span measurements only at start and midpoint of each segment */
-function spanMeasurementOffsets(segmentDistanceFt) {
+/* start + midpoint for every segment, plus end point on final segment */
+function spanMeasurementOffsets(segmentDistanceFt, isLastSegment = false) {
   const seg = toNum(segmentDistanceFt, 0);
   if (seg <= 0) return [];
 
   const midpoint = Number((seg / 2).toFixed(3));
-  return [...new Set([0, midpoint])];
+  const offsets = [0, midpoint];
+
+  if (isLastSegment) {
+    offsets.push(Number(seg.toFixed(3)));
+  }
+
+  return [...new Set(offsets)].sort((a, b) => a - b);
 }
 
 function sideConfig() {
@@ -437,7 +442,7 @@ function buildLayout() {
 
   const spanMeasurements = document.createElement("fieldset");
   spanMeasurements.className = "grid";
-  spanMeasurements.innerHTML = `<legend>Span Measurements — start point and midpoint only for each segment</legend>`;
+  spanMeasurements.innerHTML = `<legend>Span Measurements — start and midpoint for each segment, plus final end point</legend>`;
 
   for (let segment = 1; segment < columns; segment += 1) {
     const segmentLen = Math.min(
@@ -445,7 +450,9 @@ function buildLayout() {
       getSegmentLengthFt("sideB", segment) || 60
     );
 
-    spanMeasurementOffsets(segmentLen).forEach((offset) => {
+    const isLastSegment = segment === columns - 1;
+
+    spanMeasurementOffsets(segmentLen, isLastSegment).forEach((offset) => {
       const label = document.createElement("label");
       label.innerHTML = `Span measurement for segment ${segment} at ${offset} ft station (in)
         <input type="number" step="0.001" id="span_segment_${segment}_station_${offset}" value="0" />`;
@@ -585,7 +592,9 @@ function evaluateElevationRows() {
       getSegmentLengthFt("sideB", segment)
     );
 
-    spanMeasurementOffsets(segmentLen).forEach((offset) => {
+    const isLastSegment = segment === columns - 1;
+
+    spanMeasurementOffsets(segmentLen, isLastSegment).forEach((offset) => {
       const measuredSpan = getSpanMeasurementValue(segment, offset);
       const deviation = measuredSpan - referenceSpan;
 
@@ -734,7 +743,9 @@ function collectSpanLayerData() {
       getSegmentLengthFt("sideB", segment)
     );
 
-    spanMeasurementOffsets(segmentLenFt).forEach((offsetFt) => {
+    const isLastSegment = segment === columns - 1;
+
+    spanMeasurementOffsets(segmentLenFt, isLastSegment).forEach((offsetFt) => {
       const measuredSpan = getSpanMeasurementValue(segment, offsetFt);
       const delta = measuredSpan - referenceSpan;
       pts.push({
