@@ -54,9 +54,9 @@ body {
 
 .brandMark {
   display: flex;
-  align-items: flex-start;
-  gap: 24px;
-  margin-bottom: 10px;
+  align-items: center;
+  gap: 30px;
+  margin-bottom: 18px;
 }
 
 .brandLogoFrame {
@@ -64,25 +64,21 @@ body {
   align-items: center;
   justify-content: center;
   flex: 0 0 auto;
-  width: 158px;
-  height: 110px;
-  overflow: hidden;
+  width: 220px;
+  min-width: 220px;
 }
 
 .brandLogo {
   display: block;
-  width: 190px;
-  max-width: none;
+  width: 220px;
   height: auto;
-  transform: translate(-14px, -11px);
 }
 
 .heroTitleBlock {
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 10px;
-  min-height: 110px;
+  gap: 8px;
 }
 
 .brandLockup {
@@ -96,13 +92,6 @@ body {
   font-size: 0.98rem;
   font-weight: 700;
   letter-spacing: 0.03em;
-}
-
-.brandUtility {
-  color: rgba(255, 255, 255, 0.62);
-  font-size: 0.82rem;
-  text-transform: uppercase;
-  letter-spacing: 0.18em;
 }
 
 .eyebrow,
@@ -722,16 +711,11 @@ td input[type="number"] {
   }
 
   .brandLogoFrame {
-    width: 136px;
-    height: 96px;
-  }
-
-  .heroTitleBlock {
-    min-height: auto;
+    width: 170px;
+    min-width: 170px;
   }
 
   .brandLogo {
-    width: 164px;
-    transform: translate(-12px, -10px);
+    width: 170px;
   }
 }
