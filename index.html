@@ -11,10 +11,16 @@
   <header class="hero">
     <div class="heroInner">
       <div class="brandMark">
-        <div class="brandBadge">BG</div>
+        <div class="brandLogoFrame">
+          <img
+            class="brandLogo"
+            src="data:image/png;base64,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"
+            alt="Big G Steel logo"
+          >
+        </div>
         <div class="brandLockup">
-          <span class="brandName">Big G Steel</span>
           <span class="brandTag">Crane &amp; Material Handling Solutions</span>
+          <span class="brandUtility">TR-13 field survey workflow</span>
         </div>
       </div>
       <div class="eyebrow">Big G Steel Field App</div>
@@ -219,7 +225,8 @@
           <button id="runCheck" class="btn primary" type="button">Run Compliance Check</button>
         </div>
 
-        <div id="layoutContainer" class="stack measurementStack"></div>
+        <form id="measurementForm" class="quickCheckForm"></form>
+        <div id="layoutContainer" class="stack"></div>
       </div>
     </section>
 
@@ -227,56 +234,78 @@
       <div class="sectionHead">
         <div>
           <div class="sectionEyebrow">Step 3</div>
-          <h2>Straightness and Eccentricity Survey</h2>
+          <h2>Station-by-Station Alignment Survey</h2>
         </div>
       </div>
 
       <div class="panel">
         <p class="sectionLead">
-          Enter station-by-station horizontal offsets in inches. The tool builds straightness,
-          rate-of-change, and eccentricity results for both rails.
+          Capture the horizontal offsets used for straightness and beam-to-rail eccentricity. The survey table mirrors
+          the reporting logic from the reference reports: stationing, tolerance basis, pass/fail, and rate of change.
         </p>
 
-        <div class="grid surveyGrid">
+        <div class="stageGrid">
+          <section class="formStage">
+            <div class="stageLabel">Stationing</div>
+            <div class="grid twoColWide">
+              <label class="field">
+                <span>Runway Length (ft)</span>
+                <input id="surveyRunwayLengthFt" type="number" step="any" value="0">
+              </label>
+              <label class="field">
+                <span>Station Spacing (ft)</span>
+                <input id="surveyStationSpacingFt" type="number" step="any" value="10">
+              </label>
+              <label class="field">
+                <span>Start Station (ft)</span>
+                <input id="surveyStartFt" type="number" step="any" value="0">
+              </label>
+              <label class="field">
+                <span>Enable Beam Inputs</span>
+                <select id="surveyUseBeam">
+                  <option value="no" selected>Straightness only</option>
+                  <option value="yes">Straightness + eccentricity</option>
+                </select>
+              </label>
+            </div>
+          </section>
+
+          <section class="formStage">
+            <div class="stageLabel">Tolerance basis</div>
+            <div class="grid twoColWide">
+              <label class="field">
+                <span>Straightness Tolerance (± in)</span>
+                <input id="surveyStraightTol" type="number" step="any" value="0.375">
+              </label>
+              <label class="field">
+                <span>Max Rate of Change (in / 20 ft)</span>
+                <input id="surveyRateTolPer20" type="number" step="any" value="0.25">
+              </label>
+              <label class="field">
+                <span>Beam Web Thickness (in)</span>
+                <input id="beamWebThickness" type="number" step="any" value="0.500">
+              </label>
+              <label class="field">
+                <span>Beam Input Reference</span>
+                <select id="beamInputReference">
+                  <option value="webFace" selected>Beam web face</option>
+                  <option value="centerline">Beam centerline</option>
+                </select>
+              </label>
+            </div>
+          </section>
+        </div>
+
+        <section class="formStage">
+          <div class="stageLabel">Eccentricity zones</div>
           <label class="field">
-            <span>Runway Length (ft)</span>
-            <input id="surveyRunwayLengthFt" type="number" step="any" value="0">
-          </label>
-          <label class="field">
-            <span>Station Spacing (ft)</span>
-            <input id="surveyStationSpacingFt" type="number" step="any" value="10">
-          </label>
-          <label class="field">
-            <span>Start Station (ft)</span>
-            <input id="surveyStartFt" type="number" step="any" value="0">
-          </label>
-          <label class="field">
-            <span>Straightness Tolerance (± in)</span>
-            <input id="surveyStraightTol" type="number" step="any" value="0.375">
-          </label>
-          <label class="field">
-            <span>Max Rate Change (in per 20 ft)</span>
-            <input id="surveyRateTolPer20" type="number" step="any" value="0.25">
-          </label>
-          <label class="field">
-            <span>Enable Beam Inputs</span>
-            <select id="surveyUseBeam">
-              <option value="no" selected>No</option>
-              <option value="yes">Yes</option>
-            </select>
-          </label>
-          <label class="field fieldCompact">
-            <span>Beam Web Thickness (in)</span>
-            <input id="beamWebThickness" type="number" step="any" value="0.500">
-          </label>
-          <label class="field fieldFull">
             <span>Eccentricity Tolerance Zones</span>
-            <textarea id="eccZones" rows="5">0,300,0.630
+            <textarea id="eccZones" rows="4">0,300,0.630
 300,325,0.454
 325,465,0.765
 465,700,0.630</textarea>
           </label>
-        </div>
+        </section>
 
         <div class="actions actionsWide">
           <button id="buildSurveyStations" class="btn secondary" type="button">Build Stations</button>
@@ -290,12 +319,12 @@
             <thead>
               <tr>
                 <th>Station (ft)</th>
-                <th>Rail N (in)</th>
-                <th>Rail S (in)</th>
-                <th class="beamCol">Beam N (in)</th>
-                <th class="beamCol">Beam S (in)</th>
-                <th>N Status</th>
-                <th>S Status</th>
+                <th>Rail N</th>
+                <th>Rail S</th>
+                <th class="beamCol">Beam N</th>
+                <th class="beamCol">Beam S</th>
+                <th>Pass N</th>
+                <th>Pass S</th>
                 <th>Rate N</th>
                 <th>Rate S</th>
               </tr>
@@ -305,14 +334,14 @@
         </div>
 
         <div class="chartGrid">
-          <div class="chartCard">
-            <h3>Straightness Plot</h3>
+          <div class="chartPanel">
+            <h3>Straightness Chart</h3>
             <div class="svgFrame">
               <svg id="straightnessSvg" width="1100" height="360" viewBox="0 0 1100 360" role="img" aria-label="Straightness plot"></svg>
             </div>
           </div>
-          <div class="chartCard">
-            <h3>Eccentricity Plot</h3>
+          <div class="chartPanel">
+            <h3>Eccentricity Chart</h3>
             <div class="svgFrame">
               <svg id="eccentricitySvg" width="1100" height="360" viewBox="0 0 1100 360" role="img" aria-label="Eccentricity plot"></svg>
             </div>
@@ -325,18 +354,17 @@
       <div class="sectionHead">
         <div>
           <div class="sectionEyebrow">Step 4</div>
-          <h2>Compliance Results and Guidance</h2>
+          <h2>Results and Customer Handoff</h2>
         </div>
       </div>
 
-      <div class="panel resultsPanel">
+      <div class="panel">
+        <div id="resultHighlights" class="highlightGrid"></div>
         <div id="summary" class="summaryCard">No check run yet.</div>
 
-        <div class="actions actionsWide resultsActions">
-          <button id="exportPdf" class="btn secondary" type="button">Export Results to PDF</button>
+        <div class="actions">
+          <button id="exportPdf" class="btn secondary" type="button">Print / Save PDF Report</button>
         </div>
-
-        <div class="highlightGrid" id="highlightGrid"></div>
 
         <div class="tableShell">
           <table id="resultTable" aria-label="Compliance results">
@@ -353,18 +381,18 @@
           </table>
         </div>
 
-        <div id="suggestions" class="suggestionsPanel">
-          <h3>Engineering Adjustment Suggestions</h3>
+        <section class="suggestionPanel">
+          <h3>Field Adjustment Suggestions</h3>
           <ul id="suggestionList">
             <li>Run a compliance check to generate adjustment guidance.</li>
           </ul>
-        </div>
+        </section>
       </div>
     </section>
 
-    <footer class="footnote">
-      <strong>Important:</strong> Field aid only. Validate limits against the latest CMAA 70 / 74,
-      AIST TR-13, and project specifications before final release.
+    <footer class="footerNote">
+      <strong>Field aid only.</strong> Validate final acceptance against the latest AIST TR-13, CMAA 70 / 74,
+      ASTM A6, and project-specific requirements before signoff.
     </footer>
   </main>
 
