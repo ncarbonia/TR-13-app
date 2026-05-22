@@ -1,386 +1,347 @@
-/* app.js — Big G Steel TR-13 / CMAA field check */
+const FRACTION_ROWS = [
+  ["1/32", "0.03125"], ["1/16", "0.06250"], ["3/32", "0.09375"], ["1/8", "0.12500"],
+  ["5/32", "0.15625"], ["3/16", "0.18750"], ["7/32", "0.21875"], ["1/4", "0.25000"],
+  ["9/32", "0.28125"], ["5/16", "0.31250"], ["11/32", "0.34375"], ["3/8", "0.37500"],
+  ["13/32", "0.40625"], ["7/16", "0.43750"], ["15/32", "0.46875"], ["1/2", "0.50000"],
+  ["17/32", "0.53125"], ["9/16", "0.56250"], ["19/32", "0.59375"], ["5/8", "0.62500"],
+  ["21/32", "0.65625"], ["11/16", "0.68750"], ["23/32", "0.71875"], ["3/4", "0.75000"],
+  ["25/32", "0.78125"], ["13/16", "0.81250"], ["27/32", "0.84375"], ["7/8", "0.87500"],
+  ["29/32", "0.90625"], ["15/16", "0.93750"], ["31/32", "0.96875"], ["1", "1.00000"],
+];
 
 const profiles = {
-  "CMAA 70 / 74 + TR-13 (field defaults)": {
+  "Big G Steel Rail Survey": {
+    summary:
+      "Field-first setup aligned to the reporting backbone used in the attached runway survey documents.",
     checks: [
       {
         id: "runwayStraightness",
-        label: "Runway centerline straightness offset (single value)",
-        reference: "TR-13 straightness check (quick field check)",
+        label: "Quick straightness spot check",
+        reference: "AIST TR-13 / field confirmation",
         inputs: [
-          { id: "runout", label: "Measured offset over gauge length (in)", value: 0.21 },
-          { id: "runoutTol", label: "Allowed straightness offset (in)", value: 0.25 },
+          { id: "runout", label: "Measured offset over gauge length (in)", value: 0.21, step: "0.01" },
+          { id: "runoutTol", label: "Allowed straightness offset (in)", value: 0.25, step: "0.01" },
         ],
-        evaluate: (values) => ({
-          measuredText: `${Math.abs(values.runout).toFixed(3)} in offset`,
-          allowedText: `≤ ${values.runoutTol.toFixed(3)} in`,
-          pass: Math.abs(values.runout) <= values.runoutTol,
-        }),
+        evaluate(values) {
+          const actual = Math.abs(values.runout);
+          return {
+            measuredText: `${actual.toFixed(3)} in offset`,
+            allowedText: `<= ${values.runoutTol.toFixed(3)} in`,
+            pass: actual <= values.runoutTol,
+          };
+        },
+      },
+      {
+        id: "beamRoll",
+        label: "Runway beam roll spot check",
+        reference: "ASTM A6 / report-level comparison",
+        inputs: [
+          { id: "roll", label: "Measured roll at critical point (deg)", value: 0.4, step: "0.01" },
+          { id: "rollTol", label: "Allowed roll (deg)", value: 1.1, step: "0.01" },
+        ],
+        evaluate(values) {
+          const actual = Math.abs(values.roll);
+          return {
+            measuredText: `${actual.toFixed(3)} deg`,
+            allowedText: `<= ${values.rollTol.toFixed(3)} deg`,
+            pass: actual <= values.rollTol,
+          };
+        },
       },
     ],
   },
 };
 
-/* ---------------- DOM ---------------- */
+const dom = {
+  profileSelect: document.getElementById("profileSelect"),
+  form: document.getElementById("measurementForm"),
+  runBtn: document.getElementById("runCheck"),
+  resultBody: document.querySelector("#resultTable tbody"),
+  summary: document.getElementById("summary"),
+  suggestionList: document.getElementById("suggestionList"),
+  resultHighlights: document.getElementById("resultHighlights"),
+  exportPdfBtn: document.getElementById("exportPdf"),
+  projectSnapshot: document.getElementById("projectSnapshot"),
+  columnsPerSide: document.getElementById("columnsPerSide"),
+  measuredStationDistance: document.getElementById("measuredStationDistance"),
+  directionPair: document.getElementById("directionPair"),
+  buildLayoutBtn: document.getElementById("buildLayout"),
+  layoutContainer: document.getElementById("layoutContainer"),
+  fracToggle: document.getElementById("fracToggle"),
+  fracBody: document.getElementById("fracBody"),
+  surveyRunwayLengthFt: document.getElementById("surveyRunwayLengthFt"),
+  surveyStationSpacingFt: document.getElementById("surveyStationSpacingFt"),
+  surveyStartFt: document.getElementById("surveyStartFt"),
+  surveyStraightTol: document.getElementById("surveyStraightTol"),
+  surveyRateTolPer20: document.getElementById("surveyRateTolPer20"),
+  surveyUseBeam: document.getElementById("surveyUseBeam"),
+  beamWebThickness: document.getElementById("beamWebThickness"),
+  beamInputReference: document.getElementById("beamInputReference"),
+  eccZones: document.getElementById("eccZones"),
+  buildSurveyStationsBtn: document.getElementById("buildSurveyStations"),
+  evaluateSurveyBtn: document.getElementById("evaluateSurvey"),
+  surveyStatus: document.getElementById("surveyStatus"),
+  surveyTable: document.getElementById("surveyTable"),
+  straightnessSvg: document.getElementById("straightnessSvg"),
+  eccentricitySvg: document.getElementById("eccentricitySvg"),
+};
 
-const profileSelect = document.getElementById("profileSelect");
-const form = document.getElementById("measurementForm");
-const runBtn = document.getElementById("runCheck");
-const resultBody = document.querySelector("#resultTable tbody");
-const summary = document.getElementById("summary");
-
-const columnsPerSideInput = document.getElementById("columnsPerSide");
-const measuredStationDistanceInput = document.getElementById("measuredStationDistance");
-const directionPairInput = document.getElementById("directionPair");
-const buildLayoutBtn = document.getElementById("buildLayout");
-const layoutContainer = document.getElementById("layoutContainer");
-
-const suggestionList = document.getElementById("suggestionList");
-const exportPdfBtn = document.getElementById("exportPdf");
-
-const surveyRunwayLengthFtEl = document.getElementById("surveyRunwayLengthFt");
-const surveyStationSpacingFtEl = document.getElementById("surveyStationSpacingFt");
-const surveyStartFtEl = document.getElementById("surveyStartFt");
-const surveyStraightTolEl = document.getElementById("surveyStraightTol");
-const surveyRateTolPer20El = document.getElementById("surveyRateTolPer20");
-const surveyUseBeamEl = document.getElementById("surveyUseBeam");
-const beamWebThicknessEl = document.getElementById("beamWebThickness");
-const eccZonesEl = document.getElementById("eccZones");
-
-const buildSurveyStationsBtn = document.getElementById("buildSurveyStations");
-const evaluateSurveyBtn = document.getElementById("evaluateSurvey");
-const surveyStatusEl = document.getElementById("surveyStatus");
-
-const surveyTable = document.getElementById("surveyTable");
-const surveyTbody = surveyTable ? surveyTable.querySelector("tbody") : null;
-
-const straightnessSvgEl = document.getElementById("straightnessSvg");
-const eccentricitySvgEl = document.getElementById("eccentricitySvg");
-
-/* ---------------- State ---------------- */
-
-let latestRows = [];
-let latestMarkupDiagramSvg = "";
-let latestStraightnessChartSvg = "";
-let latestEccentricityChartSvg = "";
-let latestBeamInputMode = "webFace";
-
-/* ---------------- Required DOM guard ---------------- */
-
-const REQUIRED = [
-  ["profileSelect", profileSelect],
-  ["measurementForm", form],
-  ["runCheck", runBtn],
-  ["resultTable tbody", resultBody],
-  ["summary", summary],
-  ["columnsPerSide", columnsPerSideInput],
-  ["measuredStationDistance", measuredStationDistanceInput],
-  ["directionPair", directionPairInput],
-  ["buildLayout", buildLayoutBtn],
-  ["layoutContainer", layoutContainer],
-  ["exportPdf", exportPdfBtn],
+const projectFieldIds = [
+  "customerName",
+  "facilityLocation",
+  "serviceArea",
+  "projectName",
+  "surveyDate",
+  "surveyors",
+  "reportNumber",
+  "craneManufacturer",
+  "capacity",
+  "spanLabel",
+  "serviceClass",
+  "runwayManufacturer",
+  "railSize",
+  "surveyDevice",
+  "projectNotes",
 ];
 
-function assertRequiredDom() {
-  const missing = REQUIRED.filter(([, el]) => !el).map(([name]) => name);
-  if (missing.length) {
-    console.error("App init failed. Missing DOM:", missing);
-    if (summary) {
-      summary.textContent = `App error: Missing required elements (${missing.join(", ")}).`;
-    }
-    return false;
-  }
-  return true;
+const state = {
+  latestRows: [],
+  latestSurveySummary: null,
+  latestStraightnessChartSvg: "",
+  latestEccentricityChartSvg: "",
+};
+
+function $(id) {
+  return document.getElementById(id);
 }
 
-/* ---------------- Utilities ---------------- */
-
-function escHtml(s) {
-  return String(s).replace(/[&<>"]/g, (c) => ({
+function escHtml(value) {
+  return String(value ?? "").replace(/[&<>"]/g, (char) => ({
     "&": "&amp;",
     "<": "&lt;",
     ">": "&gt;",
-    '"': "&quot;",
-  }[c]));
+    "\"": "&quot;",
+  }[char]));
 }
 
-function toNum(v, fallback = 0) {
-  const n = Number(v);
-  return Number.isFinite(n) ? n : fallback;
+function toNum(value, fallback = 0) {
+  const num = Number(value);
+  return Number.isFinite(num) ? num : fallback;
 }
 
 function nearestFractionStringInches(valueIn) {
-  const abs = Math.abs(toNum(valueIn, 0));
-  const fracMap = [
-    { val: 0.0, s: `0"` },
-    { val: 0.0625, s: `1/16"` },
-    { val: 0.125, s: `1/8"` },
-    { val: 0.1875, s: `3/16"` },
-    { val: 0.25, s: `1/4"` },
-    { val: 0.3125, s: `5/16"` },
-    { val: 0.375, s: `3/8"` },
-    { val: 0.4375, s: `7/16"` },
-    { val: 0.5, s: `1/2"` },
-    { val: 0.625, s: `5/8"` },
-    { val: 0.75, s: `3/4"` },
-    { val: 0.875, s: `7/8"` },
-    { val: 1.0, s: `1"` },
-    { val: 1.125, s: `1 1/8"` },
-    { val: 1.25, s: `1 1/4"` },
-    { val: 1.5, s: `1 1/2"` },
-    { val: 2.0, s: `2"` },
-    { val: 3.0, s: `3"` },
+  const absValue = Math.abs(toNum(valueIn, 0));
+  const options = [
+    [0, "0\""], [0.0625, "1/16\""], [0.125, "1/8\""], [0.1875, "3/16\""],
+    [0.25, "1/4\""], [0.3125, "5/16\""], [0.375, "3/8\""], [0.4375, "7/16\""],
+    [0.5, "1/2\""], [0.625, "5/8\""], [0.75, "3/4\""], [0.875, "7/8\""],
+    [1, "1\""], [1.125, "1 1/8\""], [1.25, "1 1/4\""], [1.5, "1 1/2\""],
+    [2, "2\""], [3, "3\""],
   ];
-
-  let best = fracMap[0];
-  for (const f of fracMap) {
-    if (Math.abs(f.val - abs) < Math.abs(best.val - abs)) best = f;
-  }
-  return best.s;
+  return options.reduce((best, entry) => {
+    return Math.abs(entry[0] - absValue) < Math.abs(best[0] - absValue) ? entry : best;
+  })[1];
 }
 
-function emptySvg(msg) {
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="380" viewBox="0 0 1200 380">
-    <rect x="0" y="0" width="1200" height="380" fill="white"/>
-    <text x="40" y="60" font-family="Arial" font-size="16" font-weight="700">${escHtml(msg)}</text>
+function emptySvg(message) {
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="360" viewBox="0 0 1100 360">
+    <rect x="0" y="0" width="1100" height="360" fill="white" />
+    <text x="32" y="52" font-family="Arial" font-size="16" font-weight="700">${escHtml(message)}</text>
   </svg>`;
 }
 
-function setSvgInner(svgEl, svgString) {
-  if (!svgEl) return;
+function setSvgInner(target, svgString) {
+  if (!target) return;
   const doc = new DOMParser().parseFromString(svgString, "image/svg+xml");
-  svgEl.innerHTML = doc.documentElement.innerHTML;
+  target.innerHTML = doc.documentElement.innerHTML;
 }
 
 function parseZones(text) {
-  const lines = String(text || "")
+  return String(text || "")
     .split(/\r?\n/)
-    .map((l) => l.trim())
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const [startFt, endFt, tolIn] = line.split(",").map((part) => toNum(part.trim(), NaN));
+      if ([startFt, endFt, tolIn].every(Number.isFinite)) {
+        return { startFt, endFt, tolIn };
+      }
+      return null;
+    })
     .filter(Boolean);
-
-  const zones = [];
-  for (const line of lines) {
-    const parts = line.split(",").map((p) => p.trim());
-    if (parts.length < 3) continue;
-
-    const startFt = toNum(parts[0], NaN);
-    const endFt = toNum(parts[1], NaN);
-    const tolIn = toNum(parts[2], NaN);
-
-    if ([startFt, endFt, tolIn].every(Number.isFinite)) {
-      zones.push({ startFt, endFt, tolIn });
-    }
-  }
-  return zones.length ? zones : null;
 }
 
 function stationOffsets(segmentDistanceFt, stationDistanceFt) {
-  const offsets = [];
-  const seg = toNum(segmentDistanceFt, 0);
-  const step = toNum(stationDistanceFt, 0);
+  const points = [];
+  const length = toNum(segmentDistanceFt, 0);
+  const spacing = toNum(stationDistanceFt, 0);
+  if (length <= 0 || spacing <= 0) return points;
 
-  if (seg <= 0 || step <= 0) return offsets;
-
-  for (let offset = 0; offset <= seg + 1e-9; offset += step) {
-    const safeOffset = Math.min(offset, seg);
-    offsets.push(Number(safeOffset.toFixed(3)));
+  for (let offset = 0; offset <= length + 1e-9; offset += spacing) {
+    points.push(Number(Math.min(offset, length).toFixed(3)));
   }
-
-  const last = offsets[offsets.length - 1];
-  if (Math.abs(last - seg) > 1e-6) {
-    offsets.push(Number(seg.toFixed(3)));
+  if (Math.abs(points[points.length - 1] - length) > 1e-6) {
+    points.push(Number(length.toFixed(3)));
   }
-
-  return [...new Set(offsets)];
+  return [...new Set(points)];
 }
 
-/* start + midpoint for every segment, plus end point on final segment */
-function spanMeasurementOffsets(segmentDistanceFt, isLastSegment = false) {
-  const seg = toNum(segmentDistanceFt, 0);
-  if (seg <= 0) return [];
-
-  const midpoint = Number((seg / 2).toFixed(3));
-  const offsets = [0, midpoint];
-
-  if (isLastSegment) {
-    offsets.push(Number(seg.toFixed(3)));
-  }
-
+function spanMeasurementOffsets(segmentDistanceFt, isLastSegment) {
+  const segment = toNum(segmentDistanceFt, 0);
+  if (segment <= 0) return [];
+  const offsets = [0, Number((segment / 2).toFixed(3))];
+  if (isLastSegment) offsets.push(Number(segment.toFixed(3)));
   return [...new Set(offsets)].sort((a, b) => a - b);
 }
 
 function sideConfig() {
-  const parts = String(directionPairInput.value || "North|South").split("|");
-  const sideA = parts[0] || "North";
-  const sideB = parts[1] || "South";
-
+  const [a = "North", b = "South"] = String(dom.directionPair.value || "North|South").split("|");
   return [
-    { key: "sideA", label: sideA },
-    { key: "sideB", label: sideB },
+    { key: "sideA", label: a },
+    { key: "sideB", label: b },
   ];
 }
 
 function getSegmentLengthFt(sideKey, segment) {
-  return toNum(document.getElementById(`${sideKey}_actual_distance_${segment}`)?.value, 0);
+  return toNum($(`${sideKey}_actual_distance_${segment}`)?.value, 0);
 }
 
 function getSideElevationValue(sideKey, segment, offsetFt) {
-  return toNum(document.getElementById(`${sideKey}_segment_${segment}_station_${offsetFt}`)?.value, 0);
+  return toNum($(`${sideKey}_segment_${segment}_station_${offsetFt}`)?.value, 0);
 }
 
 function getRailToRailValue(segment, offsetFt) {
-  const a = getSideElevationValue("sideA", segment, offsetFt);
-  const b = getSideElevationValue("sideB", segment, offsetFt);
-  return a - b;
+  return getSideElevationValue("sideA", segment, offsetFt) - getSideElevationValue("sideB", segment, offsetFt);
 }
 
 function getSpanMeasurementValue(segment, offsetFt) {
-  return toNum(document.getElementById(`span_segment_${segment}_station_${offsetFt}`)?.value, 0);
+  return toNum($(`span_segment_${segment}_station_${offsetFt}`)?.value, 0);
 }
 
 function getReferenceSpanValue() {
-  return toNum(document.getElementById("referenceSpan")?.value, 0);
+  return toNum($("referenceSpan")?.value, 0);
 }
 
 function getSpanToleranceValue() {
-  return toNum(document.getElementById("spanTol")?.value, 0.25);
+  return toNum($("spanTol")?.value, 0.25);
 }
 
 function getBaselineToleranceValue() {
-  return toNum(document.getElementById("baselineTol")?.value, 0.125);
+  return toNum($("baselineTol")?.value, 0.125);
 }
 
 function getCrossLevelToleranceValue() {
-  return toNum(document.getElementById("crossLevelTol")?.value, 0.375);
+  return toNum($("crossLevelTol")?.value, 0.375);
 }
 
 function getBeamInputMode() {
-  return document.getElementById("beamInputReference")?.value || "webFace";
+  return dom.beamInputReference?.value || "webFace";
 }
 
-function beamInputModeLabel(mode = getBeamInputMode()) {
-  return mode === "centerline"
-    ? "Beam input basis: Beam centerline entered directly"
-    : "Beam input basis: Beam web face entered; beam centerline = web face + web thickness / 2";
+function getProjectData() {
+  return projectFieldIds.reduce((acc, id) => {
+    acc[id] = $(id)?.value?.trim() || "";
+    return acc;
+  }, {});
 }
 
-function beamColumnHeaderLabel(mode = getBeamInputMode(), side = "N") {
-  return mode === "centerline" ? `Beam centerline ${side}` : `Beam web face ${side}`;
+function formatProjectSnapshot(data = getProjectData()) {
+  const lines = [
+    data.customerName && `Customer: ${data.customerName}`,
+    data.facilityLocation && `Location: ${data.facilityLocation}`,
+    data.serviceArea && `Service: ${data.serviceArea}`,
+    data.capacity && data.craneManufacturer && `Crane: ${data.craneManufacturer} / ${data.capacity}`,
+    data.spanLabel && `Reference span: ${data.spanLabel}`,
+    data.serviceClass && `Service class: ${data.serviceClass}`,
+    data.railSize && `Rail size: ${data.railSize}`,
+    data.surveyDevice && `Device / method: ${data.surveyDevice}`,
+  ].filter(Boolean);
+
+  return lines.length
+    ? lines.join(" | ")
+    : "Fill in the project and system data to create a cleaner customer-facing report header.";
 }
 
-function beamHelperText(mode = getBeamInputMode()) {
-  return mode === "centerline"
-    ? "Enter measured beam centerline offset at each station."
-    : "Enter measured beam web face offset at each station. App converts to beam centerline using web thickness / 2.";
-}
-
-function getTotalRunwayLengthForSide(sideKey) {
-  const columns = toNum(columnsPerSideInput.value, 0);
-  let total = 0;
-  for (let segment = 1; segment < columns; segment += 1) {
-    total += getSegmentLengthFt(sideKey, segment);
-  }
-  return total;
-}
-
-function autoPopulateSurveyRunwayLength() {
-  if (!surveyRunwayLengthFtEl) return;
-  const sideATotal = getTotalRunwayLengthForSide("sideA");
-  const sideBTotal = getTotalRunwayLengthForSide("sideB");
-  const runwayLength = Math.max(sideATotal, sideBTotal);
-  if (runwayLength > 0) {
-    surveyRunwayLengthFtEl.value = String(runwayLength);
+function renderProjectSnapshot() {
+  if (dom.projectSnapshot) {
+    dom.projectSnapshot.textContent = formatProjectSnapshot();
   }
 }
 
-function stationLabel(segment, offsetFt) {
-  return `Seg ${segment} @ ${offsetFt} ft`;
+function buildFractionGrid() {
+  if (!dom.fracBody) return;
+  dom.fracBody.innerHTML = FRACTION_ROWS.map(([fraction, decimal]) => (
+    `<div class="fracRow"><span>${fraction}</span><span>=</span><span>${decimal}</span></div>`
+  )).join("");
 }
-
-function buildNiceCenteredYAxis(maxAbsValue, step = 0.1, minHalfRange = 0.4) {
-  const safeStep = Math.max(0.01, step);
-  const padded = Math.max(minHalfRange, maxAbsValue);
-  const halfRange = Math.ceil(padded / safeStep) * safeStep;
-  const yMin = -halfRange;
-  const yMax = halfRange;
-
-  const ticks = [];
-  for (let y = yMin; y <= yMax + 1e-9; y += safeStep) {
-    ticks.push(Number(y.toFixed(3)));
-  }
-  return { yMin, yMax, ticks };
-}
-
-function correctionArrowTextBaseline(valueIn, tolIn) {
-  const absVal = Math.abs(valueIn);
-  const excess = Math.max(0, absVal - tolIn);
-  if (excess <= 0) return "WITHIN TOL";
-  if (valueIn > 0) return `LOWER RAIL ${nearestFractionStringInches(excess)} (${excess.toFixed(3)} in)`;
-  if (valueIn < 0) return `RAISE RAIL ${nearestFractionStringInches(excess)} (${excess.toFixed(3)} in)`;
-  return "CHECK MEASUREMENT";
-}
-
-function correctionArrowTextCrossLevel(valueIn, tolIn, sideAName, sideBName) {
-  const absVal = Math.abs(valueIn);
-  const excess = Math.max(0, absVal - tolIn);
-  if (excess <= 0) return "WITHIN TOL";
-  if (valueIn > 0) {
-    return `LOWER ${sideAName} or RAISE ${sideBName} by ${nearestFractionStringInches(excess)} (${excess.toFixed(3)} in)`;
-  }
-  return `LOWER ${sideBName} or RAISE ${sideAName} by ${nearestFractionStringInches(excess)} (${excess.toFixed(3)} in)`;
-}
-
-function correctionArrowTextSpan(measuredSpan, referenceSpan, spanTol) {
-  const delta = measuredSpan - referenceSpan;
-  const absDelta = Math.abs(delta);
-  if (absDelta <= spanTol) return "WITHIN TOL";
-  if (delta > 0) {
-    return `SPAN TOO WIDE — MOVE RAILS IN ${nearestFractionStringInches(absDelta)} (${absDelta.toFixed(3)} in total)`;
-  }
-  return `SPAN TOO NARROW — MOVE RAILS OUT ${nearestFractionStringInches(absDelta)} (${absDelta.toFixed(3)} in total)`;
-}
-
-/* ---------------- Profiles / base form ---------------- */
 
 function buildProfileOptions() {
-  profileSelect.innerHTML = "";
-  Object.keys(profiles).forEach((name) => {
-    const option = document.createElement("option");
-    option.value = name;
-    option.textContent = name;
-    profileSelect.appendChild(option);
-  });
+  dom.profileSelect.innerHTML = Object.keys(profiles).map((name) => (
+    `<option value="${escHtml(name)}">${escHtml(name)}</option>`
+  )).join("");
 }
 
 function activeProfile() {
-  return profiles[profileSelect.value];
+  return profiles[dom.profileSelect.value];
 }
 
 function renderForm() {
-  form.innerHTML = "";
   const profile = activeProfile();
-  if (!profile) return;
+  if (!profile || !dom.form) return;
 
-  profile.checks.forEach((check) => {
-    check.inputs.forEach((input) => {
-      const label = document.createElement("label");
-      label.innerHTML = `${escHtml(check.label)} — ${escHtml(input.label)}
-        <input type="number" step="0.1" id="${check.id}_${input.id}" value="${input.value}" />`;
-      form.appendChild(label);
+  dom.form.innerHTML = profile.checks.map((check) => check.inputs.map((input) => `
+    <label>
+      <span>${escHtml(check.label)} - ${escHtml(input.label)}</span>
+      <input type="number" step="${escHtml(input.step || "0.1")}" id="${escHtml(check.id)}_${escHtml(input.id)}" value="${escHtml(input.value)}">
+    </label>
+  `).join("")).join("");
+}
+
+function autoPopulateSurveyRunwayLength() {
+  let total = 0;
+  const columnCount = toNum(dom.columnsPerSide.value, 0);
+  for (let segment = 1; segment < columnCount; segment += 1) {
+    total += getSegmentLengthFt("sideA", segment) || getSegmentLengthFt("sideB", segment);
+  }
+  if (total > 0) {
+    dom.surveyRunwayLengthFt.value = String(total);
+  }
+}
+
+function bindLayoutLiveCalculations() {
+  dom.layoutContainer.querySelectorAll("input[type='number']").forEach((input) => {
+    input.addEventListener("input", () => {
+      updateRailToRailReadonlyValues();
+      autoPopulateSurveyRunwayLength();
     });
   });
 }
 
-/* ---------------- Layout generation ---------------- */
+function updateRailToRailReadonlyValues() {
+  const columns = toNum(dom.columnsPerSide.value, 0);
+  const spacing = toNum(dom.measuredStationDistance.value, 10);
+  for (let segment = 1; segment < columns; segment += 1) {
+    const segmentLen = Math.min(
+      getSegmentLengthFt("sideA", segment),
+      getSegmentLengthFt("sideB", segment),
+    );
+    if (segmentLen <= 0) continue;
+    stationOffsets(segmentLen, spacing).forEach((offset) => {
+      const output = $(`rail_to_rail_segment_${segment}_station_${offset}`);
+      if (output) {
+        output.value = getRailToRailValue(segment, offset).toFixed(3);
+      }
+    });
+  }
+}
 
 function buildLayout() {
-  layoutContainer.innerHTML = "";
+  dom.layoutContainer.innerHTML = "";
 
-  const columns = toNum(columnsPerSideInput.value, 0);
-  const measuredStationDistance = toNum(measuredStationDistanceInput.value, 0);
-
-  if (columns < 2 || measuredStationDistance <= 0) {
-    summary.textContent = "Columns per side must be 2+ and measured station distance must be > 0.";
+  const columns = toNum(dom.columnsPerSide.value, 0);
+  const spacing = toNum(dom.measuredStationDistance.value, 0);
+  if (columns < 2 || spacing <= 0) {
+    dom.summary.textContent = "Columns per side must be 2 or more, and measured station distance must be greater than 0.";
     return;
   }
 
@@ -393,174 +354,131 @@ function buildLayout() {
 
     for (let segment = 1; segment < columns; segment += 1) {
       const label = document.createElement("label");
-      label.innerHTML = `${escHtml(side.label)} Column ${segment} to ${escHtml(side.label)} Column ${segment + 1} actual distance (ft)
-        <input type="number" step="1" min="0" id="${side.key}_actual_distance_${segment}" value="60" />`;
+      label.innerHTML = `
+        <span>${escHtml(side.label)} Column ${segment} to ${segment + 1} actual distance (ft)</span>
+        <input type="number" step="1" min="0" id="${escHtml(side.key)}_actual_distance_${segment}" value="60">
+      `;
       fieldset.appendChild(label);
     }
-
-    layoutContainer.appendChild(fieldset);
+    dom.layoutContainer.appendChild(fieldset);
   });
 
-  const sideMeasurements = document.createElement("fieldset");
-  sideMeasurements.className = "grid";
-  sideMeasurements.innerHTML =
-    `<legend>Side Elevation from Baseline (TOP OF RAIL) — stations include segment end station</legend>`;
+  const elevationSet = document.createElement("fieldset");
+  elevationSet.className = "grid";
+  elevationSet.innerHTML = "<legend>Top of Rail Elevation from Baseline</legend>";
 
   sides.forEach((side) => {
     for (let segment = 1; segment < columns; segment += 1) {
       const actualDistance = getSegmentLengthFt(side.key, segment) || 60;
-      const offsets = stationOffsets(actualDistance, measuredStationDistance);
-
-      offsets.forEach((offset) => {
+      stationOffsets(actualDistance, spacing).forEach((offset) => {
         const label = document.createElement("label");
-        label.innerHTML = `${escHtml(side.label)} Column ${segment} to ${escHtml(side.label)} Column ${segment + 1} elevation from Baseline at ${offset} ft station (in)
-          <input type="number" step="0.05" id="${side.key}_segment_${segment}_station_${offset}" value="0" />`;
-        sideMeasurements.appendChild(label);
+        label.innerHTML = `
+          <span>${escHtml(side.label)} column ${segment} to ${segment + 1} elevation at ${offset} ft station (in)</span>
+          <input type="number" step="0.01" id="${escHtml(side.key)}_segment_${segment}_station_${offset}" value="0">
+        `;
+        elevationSet.appendChild(label);
       });
     }
   });
-  layoutContainer.appendChild(sideMeasurements);
+  dom.layoutContainer.appendChild(elevationSet);
 
-  const railToRailMeasurements = document.createElement("fieldset");
-  railToRailMeasurements.className = "grid";
-  railToRailMeasurements.innerHTML = `<legend>Rail to Rail Measurements</legend>`;
-
+  const railSet = document.createElement("fieldset");
+  railSet.className = "grid";
+  railSet.innerHTML = "<legend>Rail-to-Rail Elevation Difference</legend>";
   for (let segment = 1; segment < columns; segment += 1) {
     const segmentLen = Math.min(
       getSegmentLengthFt("sideA", segment) || 60,
-      getSegmentLengthFt("sideB", segment) || 60
+      getSegmentLengthFt("sideB", segment) || 60,
     );
-
-    stationOffsets(segmentLen, measuredStationDistance).forEach((offset) => {
+    stationOffsets(segmentLen, spacing).forEach((offset) => {
       const label = document.createElement("label");
-      label.innerHTML = `${escHtml(sides[0].label)}${segment} to ${escHtml(sides[1].label)}${segment} rail-to-rail at ${offset} ft station (in)
-        <input type="number" step="0.001" id="rail_to_rail_segment_${segment}_station_${offset}" value="0" readonly class="readonlyCalc" />`;
-      railToRailMeasurements.appendChild(label);
+      label.innerHTML = `
+        <span>Rail-to-rail at segment ${segment}, ${offset} ft station (in)</span>
+        <input type="number" class="readonlyCalc" id="rail_to_rail_segment_${segment}_station_${offset}" value="0" readonly>
+      `;
+      railSet.appendChild(label);
     });
   }
-  layoutContainer.appendChild(railToRailMeasurements);
+  dom.layoutContainer.appendChild(railSet);
 
-  const spanMeasurements = document.createElement("fieldset");
-  spanMeasurements.className = "grid";
-  spanMeasurements.innerHTML = `<legend>Span Measurements — start and midpoint for each segment, plus final end point</legend>`;
-
+  const spanSet = document.createElement("fieldset");
+  spanSet.className = "grid";
+  spanSet.innerHTML = "<legend>Span Measurements</legend>";
   for (let segment = 1; segment < columns; segment += 1) {
     const segmentLen = Math.min(
       getSegmentLengthFt("sideA", segment) || 60,
-      getSegmentLengthFt("sideB", segment) || 60
+      getSegmentLengthFt("sideB", segment) || 60,
     );
-
     const isLastSegment = segment === columns - 1;
-
     spanMeasurementOffsets(segmentLen, isLastSegment).forEach((offset) => {
       const label = document.createElement("label");
-      label.innerHTML = `Span measurement for segment ${segment} at ${offset} ft station (in)
-        <input type="number" step="0.1" id="span_segment_${segment}_station_${offset}" value="0" />`;
-      spanMeasurements.appendChild(label);
+      label.innerHTML = `
+        <span>Span measurement at segment ${segment}, ${offset} ft station (in)</span>
+        <input type="number" step="0.01" id="span_segment_${segment}_station_${offset}" value="0">
+      `;
+      spanSet.appendChild(label);
     });
   }
-  layoutContainer.appendChild(spanMeasurements);
+  dom.layoutContainer.appendChild(spanSet);
 
-  const tolerances = document.createElement("fieldset");
-  tolerances.className = "grid two-col";
-  tolerances.innerHTML = `
-    <legend>TR-13 checks and tolerances</legend>
-
+  const toleranceSet = document.createElement("fieldset");
+  toleranceSet.className = "grid";
+  toleranceSet.innerHTML = `
+    <legend>Acceptance Tolerances</legend>
     <label>
-      Reference span (in)
-      <input type="number" step="0.001" min="0" id="referenceSpan" value="1200" />
+      <span>Reference span (in)</span>
+      <input type="number" step="0.001" id="referenceSpan" value="1200">
     </label>
-
     <label>
-      Span tolerance (in)
-      <input type="number" step="0.001" min="0" id="spanTol" value="0.25" />
+      <span>Span tolerance (in)</span>
+      <input type="number" step="0.001" id="spanTol" value="0.25">
     </label>
-
     <label>
-      Side elevation from Baseline tolerance (in)
-      <input type="number" step="0.001" min="0" id="baselineTol" value="0.125" />
+      <span>Baseline tolerance (in)</span>
+      <input type="number" step="0.001" id="baselineTol" value="0.125">
     </label>
-
     <label>
-      Rail to Rail tolerance (in)
-      <input type="number" step="0.001" min="0" id="crossLevelTol" value="0.375" />
+      <span>Rail-to-rail tolerance (in)</span>
+      <input type="number" step="0.001" id="crossLevelTol" value="0.375">
     </label>
   `;
-  layoutContainer.appendChild(tolerances);
+  dom.layoutContainer.appendChild(toleranceSet);
 
   bindLayoutLiveCalculations();
   updateRailToRailReadonlyValues();
   autoPopulateSurveyRunwayLength();
-
-  summary.textContent = "Layout built. Enter values, then run compliance check.";
+  dom.summary.textContent = "Layout built. Enter actual measurements, then run the compliance check.";
 }
-
-function bindLayoutLiveCalculations() {
-  const inputs = layoutContainer.querySelectorAll('input[type="number"]:not(.readonlyCalc)');
-  inputs.forEach((input) => {
-    input.addEventListener("input", () => {
-      updateRailToRailReadonlyValues();
-      autoPopulateSurveyRunwayLength();
-    });
-  });
-}
-
-function updateRailToRailReadonlyValues() {
-  const columns = toNum(columnsPerSideInput.value, 0);
-  const measuredStationDistance = toNum(measuredStationDistanceInput.value, 10);
-
-  for (let segment = 1; segment < columns; segment += 1) {
-    const segmentLen = Math.min(
-      getSegmentLengthFt("sideA", segment),
-      getSegmentLengthFt("sideB", segment)
-    );
-
-    if (segmentLen <= 0) continue;
-
-    stationOffsets(segmentLen, measuredStationDistance).forEach((offset) => {
-      const outEl = document.getElementById(`rail_to_rail_segment_${segment}_station_${offset}`);
-      if (!outEl) return;
-      outEl.value = getRailToRailValue(segment, offset).toFixed(3);
-    });
-  }
-}
-
-/* ---------------- Core evaluation ---------------- */
 
 function collectValues(check) {
   return check.inputs.reduce((acc, input) => {
-    const el = document.getElementById(`${check.id}_${input.id}`);
-    acc[input.id] = toNum(el?.value, 0);
+    acc[input.id] = toNum($(`${check.id}_${input.id}`)?.value, 0);
     return acc;
   }, {});
 }
 
 function evaluateElevationRows() {
   const sides = sideConfig();
-  const columns = toNum(columnsPerSideInput.value, 0);
-  const measuredStationDistance = toNum(measuredStationDistanceInput.value, 10);
-
+  const columns = toNum(dom.columnsPerSide.value, 0);
+  const spacing = toNum(dom.measuredStationDistance.value, 10);
   const baselineTol = getBaselineToleranceValue();
-  const railToRailTol = getCrossLevelToleranceValue();
+  const railTol = getCrossLevelToleranceValue();
   const referenceSpan = getReferenceSpanValue();
   const spanTol = getSpanToleranceValue();
-
   const rows = [];
 
   sides.forEach((side) => {
     for (let segment = 1; segment < columns; segment += 1) {
       const actualDistance = getSegmentLengthFt(side.key, segment);
-
-      stationOffsets(actualDistance, measuredStationDistance).forEach((offset) => {
-        const rawValue = getSideElevationValue(side.key, segment, offset);
-        const elevationFromBaseline = Math.abs(rawValue);
-
+      stationOffsets(actualDistance, spacing).forEach((offset) => {
+        const raw = getSideElevationValue(side.key, segment, offset);
+        const actual = Math.abs(raw);
         rows.push({
-          check: `${side.label} Column ${segment} to ${side.label} Column ${segment + 1} baseline check at ${offset} ft`,
-          measuredText: `${rawValue.toFixed(3)} in from baseline (${elevationFromBaseline.toFixed(3)} in abs)`,
-          allowedText: `±${baselineTol.toFixed(3)} in`,
-          pass: elevationFromBaseline <= baselineTol,
-          reference: "TR-13 baseline elevation (TOP OF RAIL)",
+          check: `${side.label} segment ${segment} elevation at ${offset} ft`,
+          measuredText: `${raw.toFixed(3)} in from baseline`,
+          allowedText: `+/-${baselineTol.toFixed(3)} in`,
+          pass: actual <= baselineTol,
+          reference: "Top of rail baseline check",
         });
       });
     }
@@ -569,19 +487,17 @@ function evaluateElevationRows() {
   for (let segment = 1; segment < columns; segment += 1) {
     const segmentLen = Math.min(
       getSegmentLengthFt("sideA", segment),
-      getSegmentLengthFt("sideB", segment)
+      getSegmentLengthFt("sideB", segment),
     );
-
-    stationOffsets(segmentLen, measuredStationDistance).forEach((offset) => {
-      const rawRailToRail = getRailToRailValue(segment, offset);
-      const railToRailValue = Math.abs(rawRailToRail);
-
+    stationOffsets(segmentLen, spacing).forEach((offset) => {
+      const raw = getRailToRailValue(segment, offset);
+      const actual = Math.abs(raw);
       rows.push({
-        check: `${sides[0].label}${segment} to ${sides[1].label}${segment} rail-to-rail at ${offset} ft`,
-        measuredText: `${rawRailToRail.toFixed(3)} in rail-to-rail (${railToRailValue.toFixed(3)} in abs)`,
-        allowedText: `±${railToRailTol.toFixed(3)} in`,
-        pass: railToRailValue <= railToRailTol,
-        reference: "TR-13 rail-to-rail check (TOP OF RAIL to TOP OF RAIL)",
+        check: `Rail-to-rail at segment ${segment}, ${offset} ft`,
+        measuredText: `${raw.toFixed(3)} in`,
+        allowedText: `+/-${railTol.toFixed(3)} in`,
+        pass: actual <= railTol,
+        reference: "Rail-to-rail elevation difference",
       });
     });
   }
@@ -589,944 +505,73 @@ function evaluateElevationRows() {
   for (let segment = 1; segment < columns; segment += 1) {
     const segmentLen = Math.min(
       getSegmentLengthFt("sideA", segment),
-      getSegmentLengthFt("sideB", segment)
+      getSegmentLengthFt("sideB", segment),
     );
-
     const isLastSegment = segment === columns - 1;
-
     spanMeasurementOffsets(segmentLen, isLastSegment).forEach((offset) => {
       const measuredSpan = getSpanMeasurementValue(segment, offset);
-      const deviation = measuredSpan - referenceSpan;
-
+      const delta = measuredSpan - referenceSpan;
       rows.push({
-        check: `Span measurement for segment ${segment} at ${offset} ft`,
-        measuredText: `${measuredSpan.toFixed(3)} in measured (${deviation.toFixed(3)} in vs reference)`,
-        allowedText: `${referenceSpan.toFixed(3)} in ± ${spanTol.toFixed(3)} in`,
-        pass: Math.abs(deviation) <= spanTol,
-        reference: "TR-13 span verification against single reference span",
+        check: `Span at segment ${segment}, ${offset} ft`,
+        measuredText: `${measuredSpan.toFixed(3)} in (${delta.toFixed(3)} in vs ref)`,
+        allowedText: `${referenceSpan.toFixed(3)} +/- ${spanTol.toFixed(3)} in`,
+        pass: Math.abs(delta) <= spanTol,
+        reference: "Span verification",
       });
     });
   }
-
   return rows;
 }
 
-/* ---------------- Suggestions ---------------- */
-
 function suggestionForRow(row) {
-  const check = row.check.toLowerCase();
-
-  if (check.includes("baseline check")) {
-    return "Adjust rail seat elevation with shims or grout. Lower positive high spots and raise negative low spots, then re-shoot elevations.";
+  const text = row.check.toLowerCase();
+  if (text.includes("elevation")) {
+    return "Adjust rail seat elevation with shims or support corrections, then re-shoot the top of rail.";
   }
-  if (check.includes("rail-to-rail")) {
-    return "Correct cross-level by lowering the high rail or raising the low rail by the out-of-tolerance amount, then recheck from TOP OF RAIL.";
+  if (text.includes("rail-to-rail")) {
+    return "Correct cross-level by lowering the high rail or raising the low rail, then confirm the rail-to-rail reading again.";
   }
-  if (check.includes("span measurement")) {
-    return "Correct gauge at the failed point. If span is too wide move rails in; if too narrow move rails out. Verify clips, alignment, and remeasure.";
+  if (text.includes("span")) {
+    return "Adjust gauge at the failed point. If the span is wide, move rails in. If narrow, move rails out and remeasure.";
   }
-  if (check.includes("straightness")) {
-    return "Check alignment or stringline and adjust connection points, then remeasure.";
+  if (text.includes("straightness")) {
+    return "Check alignment against the established reference line and adjust the support or rail position before resurveying.";
   }
-
-  return "Review with engineering, correct the source of deviation, and remeasure before acceptance.";
+  if (text.includes("roll")) {
+    return "Review beam rotation at the support condition and confirm bearing, seat, and shim stack behavior.";
+  }
+  return "Review the failed point with engineering and resurvey after correction.";
 }
 
 function renderSuggestions(rows) {
-  if (!suggestionList) return;
-
   const failures = rows.filter((row) => !row.pass);
   if (!failures.length) {
-    suggestionList.innerHTML = "<li>All checks passed. No adjustment actions are currently required.</li>";
+    dom.suggestionList.innerHTML = "<li>All current checks passed. No adjustment actions are listed.</li>";
     return;
   }
-
-  suggestionList.innerHTML = failures
-    .map((row) => `<li><strong>${escHtml(row.check)}:</strong> ${escHtml(suggestionForRow(row))}</li>`)
-    .join("");
+  dom.suggestionList.innerHTML = failures.slice(0, 12).map((row) => (
+    `<li><strong>${escHtml(row.check)}:</strong> ${escHtml(suggestionForRow(row))}</li>`
+  )).join("");
 }
 
-/* ---------------- Markup data ---------------- */
-
-function collectBaselineLayerData() {
-  const sides = sideConfig();
-  const columns = toNum(columnsPerSideInput.value, 0);
-  const measuredStationDistance = toNum(measuredStationDistanceInput.value, 10);
-  const tol = getBaselineToleranceValue();
-
-  const pts = [];
-
-  sides.forEach((side) => {
-    let cumulativeFt = 0;
-
-    for (let segment = 1; segment < columns; segment += 1) {
-      const actualDistance = getSegmentLengthFt(side.key, segment);
-      const offsets = stationOffsets(actualDistance, measuredStationDistance);
-
-      offsets.forEach((offsetFt) => {
-        const raw = getSideElevationValue(side.key, segment, offsetFt);
-        const absVal = Math.abs(raw);
-        pts.push({
-          family: "baseline",
-          sideKey: side.key,
-          sideLabel: side.label,
-          segment,
-          offsetFt,
-          stationFt: cumulativeFt + offsetFt,
-          valueIn: raw,
-          absValueIn: absVal,
-          tolIn: tol,
-          pass: absVal <= tol,
-          checkLabel: `${side.label} ${stationLabel(segment, offsetFt)}`,
-          correctionText: correctionArrowTextBaseline(raw, tol),
-        });
-      });
-
-      cumulativeFt += actualDistance;
-    }
-  });
-
-  return pts;
-}
-
-function collectCrossLevelLayerData() {
-  const sides = sideConfig();
-  const columns = toNum(columnsPerSideInput.value, 0);
-  const measuredStationDistance = toNum(measuredStationDistanceInput.value, 10);
-  const tol = getCrossLevelToleranceValue();
-
-  const pts = [];
-  let cumulativeFt = 0;
-
-  for (let segment = 1; segment < columns; segment += 1) {
-    const segmentLenFt = Math.min(
-      getSegmentLengthFt("sideA", segment),
-      getSegmentLengthFt("sideB", segment)
-    );
-
-    const offsets = stationOffsets(segmentLenFt, measuredStationDistance);
-
-    offsets.forEach((offsetFt) => {
-      const raw = getRailToRailValue(segment, offsetFt);
-      const absVal = Math.abs(raw);
-      pts.push({
-        family: "crossLevel",
-        segment,
-        offsetFt,
-        stationFt: cumulativeFt + offsetFt,
-        valueIn: raw,
-        absValueIn: absVal,
-        tolIn: tol,
-        pass: absVal <= tol,
-        checkLabel: `${sides[0].label}${segment} to ${sides[1].label}${segment} @ ${offsetFt} ft`,
-        correctionText: correctionArrowTextCrossLevel(raw, tol, sides[0].label, sides[1].label),
-      });
-    });
-
-    cumulativeFt += segmentLenFt;
-  }
-
-  return pts;
-}
-
-function collectSpanLayerData() {
-  const columns = toNum(columnsPerSideInput.value, 0);
-  const referenceSpan = getReferenceSpanValue();
-  const spanTol = getSpanToleranceValue();
-
-  const pts = [];
-  let cumulativeFt = 0;
-
-  for (let segment = 1; segment < columns; segment += 1) {
-    const segmentLenFt = Math.min(
-      getSegmentLengthFt("sideA", segment),
-      getSegmentLengthFt("sideB", segment)
-    );
-
-    const isLastSegment = segment === columns - 1;
-
-    spanMeasurementOffsets(segmentLenFt, isLastSegment).forEach((offsetFt) => {
-      const measuredSpan = getSpanMeasurementValue(segment, offsetFt);
-      const delta = measuredSpan - referenceSpan;
-      pts.push({
-        family: "span",
-        segment,
-        offsetFt,
-        stationFt: cumulativeFt + offsetFt,
-        valueIn: measuredSpan,
-        deltaIn: delta,
-        tolIn: spanTol,
-        referenceSpanIn: referenceSpan,
-        pass: Math.abs(delta) <= spanTol,
-        checkLabel: `Span Seg ${segment} @ ${offsetFt} ft`,
-        correctionText: correctionArrowTextSpan(measuredSpan, referenceSpan, spanTol),
-      });
-    });
-
-    cumulativeFt += segmentLenFt;
-  }
-
-  return pts;
-}
-
-/* ---------------- Chart rendering ---------------- */
-
-function buildChartSvg({ title, subtitleLeft, subtitleRight, stationFt, series, tolWindow }) {
-  const W = 1100;
-  const H = 430;
-  const margin = { l: 95, r: 38, t: 66, b: 66 };
-  const plotW = W - margin.l - margin.r;
-  const plotH = H - margin.t - margin.b;
-
-  if (!stationFt || stationFt.length < 2) {
-    return emptySvg("Not enough chart data.");
-  }
-
-  const xMin = Math.min(...stationFt);
-  const xMax = Math.max(...stationFt);
-  const xSpan = Math.max(1e-6, xMax - xMin);
-
-  let tolAbs = 0;
-  if (tolWindow) {
-    if (tolWindow.type === "constant") {
-      tolAbs = Math.abs(toNum(tolWindow.tolIn, 0));
-    } else if (tolWindow.type === "zones" && Array.isArray(tolWindow.zones)) {
-      tolAbs = Math.max(...tolWindow.zones.map((z) => Math.abs(toNum(z.tolIn, 0))), 0);
-    }
-  }
-
-  const maxSeriesAbs = Math.max(
-    tolAbs,
-    ...series.flatMap((s) => s.y.map((v) => Math.abs(toNum(v, 0))))
-  );
-
-  const axis = buildNiceCenteredYAxis(maxSeriesAbs, 0.1, 0.4);
-  const finalYMin = axis.yMin;
-  const finalYMax = axis.yMax;
-  const yTicks = axis.ticks;
-
-  const xToPx = (x) => margin.l + ((x - xMin) / xSpan) * plotW;
-  const yToPx = (y) => margin.t + (1 - ((y - finalYMin) / (finalYMax - finalYMin))) * plotH;
-
-  function tolAtStation(ft) {
-    if (!tolWindow) return 0;
-    if (tolWindow.type === "constant") {
-      return toNum(tolWindow.tolIn, 0);
-    }
-    if (tolWindow.type === "zones") {
-      const z = tolWindow.zones.find((zone) => ft >= zone.startFt && ft <= zone.endFt);
-      return z ? toNum(z.tolIn, 0) : (tolWindow.zones[tolWindow.zones.length - 1]?.tolIn ?? 0);
-    }
-    return 0;
-  }
-
-  const upperTol = stationFt.map((ft) => tolAtStation(ft));
-  const lowerTol = upperTol.map((v) => -v);
-
-  const polyPath = (arr) =>
-    arr.map((yy, i) => `${i === 0 ? "M" : "L"} ${xToPx(stationFt[i])} ${yToPx(yy)}`).join(" ");
-
-  const parts = [];
-  parts.push(`
-    <svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
-      <rect x="0" y="0" width="${W}" height="${H}" fill="white"/>
-
-      <text x="${margin.l}" y="28" font-family="Arial" font-size="18" font-weight="800">${escHtml(title)}</text>
-      <text x="${margin.l}" y="48" font-family="Arial" font-size="12">${escHtml(subtitleLeft || "")}</text>
-      <text x="${W - margin.r}" y="48" font-family="Arial" font-size="12" text-anchor="end">${escHtml(subtitleRight || "")}</text>
-
-      <rect x="${margin.l}" y="${margin.t}" width="${plotW}" height="${plotH}" fill="white" stroke="#666" stroke-width="1.2"/>
-  `);
-
-  yTicks.forEach((tick) => {
-    const y = yToPx(tick);
-    const isZero = Math.abs(tick) < 1e-9;
-
-    parts.push(`
-      <line
-        x1="${margin.l}"
-        y1="${y}"
-        x2="${margin.l + plotW}"
-        y2="${y}"
-        stroke="${isZero ? "#555" : "#dddddd"}"
-        stroke-width="${isZero ? "1.8" : "1"}"
-      />
-      <text
-        x="${margin.l - 12}"
-        y="${y + 4}"
-        text-anchor="end"
-        font-family="Arial"
-        font-size="10"
-        fill="#666"
-      >${tick.toFixed(1)}</text>
-    `);
-  });
-
-  stationFt.forEach((ft, i) => {
-    const x = xToPx(ft);
-    parts.push(`<line x1="${x}" y1="${margin.t + plotH}" x2="${x}" y2="${margin.t + plotH + 6}" stroke="#777" stroke-width="1"/>`);
-
-    const showLabel =
-      stationFt.length <= 14 ||
-      i === 0 ||
-      i === stationFt.length - 1 ||
-      i % 2 === 0;
-
-    if (showLabel) {
-      parts.push(`
-        <text x="${x}" y="${margin.t + plotH + 21}" text-anchor="middle" font-family="Arial" font-size="10" fill="#555">${ft.toFixed(0)}'</text>
-      `);
-    }
-  });
-
-  if (tolWindow) {
-    parts.push(`<path d="${polyPath(upperTol)}" fill="none" stroke="#ff4d4d" stroke-width="1.5" stroke-dasharray="4 4"/>`);
-    parts.push(`<path d="${polyPath(lowerTol)}" fill="none" stroke="#ff4d4d" stroke-width="1.5" stroke-dasharray="4 4"/>`);
-  }
-
-  series.forEach((s) => {
-    const stroke = s.style?.stroke || "black";
-    const width = s.style?.width || 2.2;
-    const dash = s.style?.dash || "";
-
-    parts.push(`
-      <path
-        d="${polyPath(s.y)}"
-        fill="none"
-        stroke="${stroke}"
-        stroke-width="${width}"
-        ${dash ? `stroke-dasharray="${dash}"` : ""}
-      />
-    `);
-
-    s.y.forEach((yy, i) => {
-      const x = xToPx(stationFt[i]);
-      const y = yToPx(yy);
-      parts.push(`<circle cx="${x}" cy="${y}" r="2.4" fill="${stroke}" />`);
-    });
-  });
-
-  parts.push(`
-      <g>
-        <line x1="${margin.l}" y1="${H - 18}" x2="${margin.l + 26}" y2="${H - 18}" stroke="black" stroke-width="2.4"/>
-        <text x="${margin.l + 34}" y="${H - 14}" font-family="Arial" font-size="10">North / Line 1</text>
-
-        <line x1="${margin.l + 140}" y1="${H - 18}" x2="${margin.l + 166}" y2="${H - 18}" stroke="#666" stroke-width="2.2" stroke-dasharray="7 5"/>
-        <text x="${margin.l + 174}" y="${H - 14}" font-family="Arial" font-size="10">South / Line 2</text>
-      </g>
-    </svg>
-  `);
-
-  return parts.join("");
-}
-
-/* ---------------- Markup helpers ---------------- */
-
-function assignFailNumbers(items) {
-  let n = 1;
-  return items.map((item) => {
-    if (!item.pass) {
-      return { ...item, failNo: n++ };
-    }
-    return { ...item, failNo: null };
-  });
-}
-
-function buildFailListBox(x, y, w, title, items) {
-  const rowH = 20;
-  const pad = 8;
-  const titleH = 22;
-  const bodyItems = items.filter((i) => !i.pass);
-  const h = titleH + pad + Math.max(1, bodyItems.length) * rowH + pad;
-
-  let out = `
-    <g>
-      <rect x="${x}" y="${y}" width="${w}" height="${h}" fill="#fffafa" stroke="#c1121f" stroke-width="1.5"/>
-      <text x="${x + 8}" y="${y + 15}" font-family="Arial" font-size="11" font-weight="800" fill="#c1121f">${escHtml(title)}</text>
-  `;
-
-  if (!bodyItems.length) {
-    out += `<text x="${x + 8}" y="${y + 15 + rowH}" font-family="Arial" font-size="10" fill="#111">No failures in this layer.</text>`;
-  } else {
-    bodyItems.forEach((item, idx) => {
-      const yy = y + titleH + pad + idx * rowH;
-      out += `
-        <circle cx="${x + 10}" cy="${yy - 3}" r="7" fill="#c1121f"/>
-        <text x="${x + 10}" y="${yy + 1}" text-anchor="middle" font-family="Arial" font-size="8" font-weight="800" fill="white">${item.failNo}</text>
-        <text x="${x + 24}" y="${yy + 1}" font-family="Arial" font-size="9.5" fill="#111">${escHtml(item.failSummary)}</text>
-      `;
-    });
-  }
-
-  out += `</g>`;
-  return { svg: out, height: h };
-}
-
-/* ---------------- 3-layer markup SVG ---------------- */
-
-function buildThreeLayerMarkupSvgString() {
-  const sides = sideConfig();
-
-  let baselinePts = collectBaselineLayerData().map((p) => ({
-    ...p,
-    failSummary: `${p.checkLabel} | Meas ${p.valueIn.toFixed(3)} in | Tol ±${p.tolIn.toFixed(3)} | ${p.correctionText}`,
-  }));
-
-  let crossPts = collectCrossLevelLayerData().map((p) => ({
-    ...p,
-    failSummary: `${p.checkLabel} | Meas ${p.valueIn.toFixed(3)} in | Tol ±${p.tolIn.toFixed(3)} | ${p.correctionText}`,
-  }));
-
-  let spanPts = collectSpanLayerData().map((p) => ({
-    ...p,
-    failSummary: `${p.checkLabel} | Meas ${p.valueIn.toFixed(3)} in | Ref ${p.referenceSpanIn.toFixed(3)} | Tol ±${p.tolIn.toFixed(3)} | ${p.correctionText}`,
-  }));
-
-  baselinePts = assignFailNumbers(baselinePts);
-  crossPts = assignFailNumbers(crossPts);
-  spanPts = assignFailNumbers(spanPts);
-
-  const allPts = [...baselinePts, ...crossPts, ...spanPts];
-  if (!allPts.length) return emptySvg("No markup data available.");
-
-  const W = 1500;
-  const H = 1520;
-  const marginL = 120;
-  const marginR = 40;
-  const plotW = W - marginL - marginR;
-
-  const allStations = allPts.map((p) => p.stationFt);
-  const minFt = Math.min(...allStations);
-  const maxFt = Math.max(...allStations);
-  const spanFt = Math.max(1, maxFt - minFt);
-
-  const xForFt = (ft) => marginL + ((ft - minFt) / spanFt) * plotW;
-
-  const layer1Top = 98;
-  const layer1North = 160;
-  const layer1South = 235;
-  const layer1ListTop = 295;
-
-  const layer2Top = 520;
-  const layer2North = 585;
-  const layer2South = 700;
-  const layer2ListTop = 770;
-
-  const layer3Top = 995;
-  const layer3North = 1060;
-  const layer3South = 1175;
-  const layer3ListTop = 1245;
-
-  const baselineTol = getBaselineToleranceValue();
-  const crossTol = getCrossLevelToleranceValue();
-  const referenceSpan = getReferenceSpanValue();
-  const spanTol = getSpanToleranceValue();
-
-  let svg = `
-  <svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
-    <defs>
-      <marker id="arrowBlack" markerWidth="10" markerHeight="10" refX="5" refY="5" orient="auto-start-reverse">
-        <path d="M0,0 L10,5 L0,10 z" fill="black"/>
-      </marker>
-    </defs>
-
-    <rect x="0" y="0" width="${W}" height="${H}" fill="white"/>
-
-    <text x="${marginL}" y="34" font-family="Arial" font-size="24" font-weight="800">TR-13 THREE-LAYER MARKUP DIAGRAM</text>
-    <text x="${marginL}" y="58" font-family="Arial" font-size="13">Failed stations are marked with red numbered badges. Detailed actions are listed below each layer.</text>
-
-    <g>
-      <rect x="${marginL}" y="68" width="18" height="12" fill="#c1121f"/>
-      <text x="${marginL + 24}" y="79" font-family="Arial" font-size="12">FAIL / out of tolerance</text>
-      <rect x="${marginL + 210}" y="68" width="18" height="12" fill="white" stroke="black" stroke-width="1.5"/>
-      <text x="${marginL + 236}" y="79" font-family="Arial" font-size="12">PASS / within tolerance</text>
-    </g>
-  `;
-
-  function layerBox(topY, bottomY, title, subtitle, northY, southY) {
-    return `
-      <g>
-        <rect x="25" y="${topY}" width="${W - 50}" height="${bottomY - topY}" fill="#fafafa" stroke="#cfcfcf"/>
-        <text x="40" y="${topY + 24}" font-family="Arial" font-size="20" font-weight="800">${escHtml(title)}</text>
-        <text x="40" y="${topY + 46}" font-family="Arial" font-size="12">${escHtml(subtitle)}</text>
-
-        <circle cx="70" cy="${northY + 7}" r="18" fill="white" stroke="black" stroke-width="2"/>
-        <text x="70" y="${northY + 12}" text-anchor="middle" font-family="Arial" font-size="16" font-weight="700">${escHtml(sides[0].label[0] || "A")}</text>
-
-        <circle cx="70" cy="${southY + 7}" r="18" fill="white" stroke="black" stroke-width="2"/>
-        <text x="70" y="${southY + 12}" text-anchor="middle" font-family="Arial" font-size="16" font-weight="700">${escHtml(sides[1].label[0] || "B")}</text>
-
-        <rect x="${marginL}" y="${northY}" width="${plotW}" height="14" fill="white" stroke="black" stroke-width="2"/>
-        <rect x="${marginL}" y="${southY}" width="${plotW}" height="14" fill="white" stroke="black" stroke-width="2"/>
-      </g>
-    `;
-  }
-
-  svg += layerBox(layer1Top, 490, "LAYER 1 — BASELINE ELEVATION", `Tolerance: ±${baselineTol.toFixed(3)} in from baseline`, layer1North, layer1South);
-  svg += layerBox(layer2Top, 965, "LAYER 2 — RAIL TO RAIL", `Tolerance: ±${crossTol.toFixed(3)} in rail-to-rail`, layer2North, layer2South);
-  svg += layerBox(layer3Top, 1490, "LAYER 3 — SPAN", `Reference span: ${referenceSpan.toFixed(3)} in ± ${spanTol.toFixed(3)} in`, layer3North, layer3South);
-
-  const allUniqueStations = [...new Set(allPts.map((p) => p.stationFt.toFixed(3)))].map(Number).sort((a, b) => a - b);
-  allUniqueStations.forEach((ft) => {
-    const x = xForFt(ft);
-    const txt = `${Math.round(ft)}'`;
-
-    svg += `
-      <g>
-        <circle cx="${x}" cy="${layer1Top + 70}" r="11" fill="white" stroke="black" stroke-width="1.5"/>
-        <text x="${x}" y="${layer1Top + 74}" text-anchor="middle" font-family="Arial" font-size="9" font-weight="700">${txt}</text>
-
-        <circle cx="${x}" cy="${layer2Top + 70}" r="11" fill="white" stroke="black" stroke-width="1.5"/>
-        <text x="${x}" y="${layer2Top + 74}" text-anchor="middle" font-family="Arial" font-size="9" font-weight="700">${txt}</text>
-
-        <circle cx="${x}" cy="${layer3Top + 70}" r="11" fill="white" stroke="black" stroke-width="1.5"/>
-        <text x="${x}" y="${layer3Top + 74}" text-anchor="middle" font-family="Arial" font-size="9" font-weight="700">${txt}</text>
-      </g>
-    `;
-  });
-
-  baselinePts.forEach((p) => {
-    const x = xForFt(p.stationFt);
-    const yRail = p.sideKey === "sideA" ? layer1North + 7 : layer1South + 7;
-    const boxY = p.sideKey === "sideA" ? layer1Top + 86 : layer1Top + 160;
-    const isFail = !p.pass;
-
-    svg += `
-      <g>
-        <line x1="${x}" y1="${yRail - 18}" x2="${x}" y2="${yRail + 18}" stroke="${isFail ? "#c1121f" : "#111"}" stroke-width="${isFail ? 2.2 : 1.4}"/>
-        <circle cx="${x}" cy="${yRail}" r="${isFail ? 6 : 4.5}" fill="${isFail ? "#c1121f" : "white"}" stroke="${isFail ? "#c1121f" : "#111"}" stroke-width="1.8"/>
-        <rect x="${x - 42}" y="${boxY}" width="84" height="30" fill="white" stroke="${isFail ? "#c1121f" : "#111"}" stroke-width="${isFail ? 1.8 : 1.2}"/>
-        <text x="${x}" y="${boxY + 12}" text-anchor="middle" font-family="Arial" font-size="10.5" font-weight="700" fill="${isFail ? "#c1121f" : "#111"}">${escHtml(p.valueIn.toFixed(3))} in</text>
-        <text x="${x}" y="${boxY + 24}" text-anchor="middle" font-family="Arial" font-size="8.5" fill="${isFail ? "#c1121f" : "#111"}">Tol ±${escHtml(p.tolIn.toFixed(3))}</text>
-      </g>
-    `;
-
-    if (isFail) {
-      svg += `
-        <g>
-          <circle cx="${x}" cy="${yRail - 22}" r="10" fill="#c1121f"/>
-          <text x="${x}" y="${yRail - 18}" text-anchor="middle" font-family="Arial" font-size="10" font-weight="800" fill="white">${p.failNo}</text>
-        </g>
-      `;
-    }
-  });
-
-  crossPts.forEach((p) => {
-    const x = xForFt(p.stationFt);
-    const y1 = layer2North + 14;
-    const y2 = layer2South;
-    const isFail = !p.pass;
-    const label = `${nearestFractionStringInches(p.absValueIn)} (${p.valueIn.toFixed(3)})`;
-
-    svg += `
-      <g>
-        <line x1="${x}" y1="${y1}" x2="${x}" y2="${y2}" stroke="${isFail ? "#c1121f" : "#111"}" stroke-width="${isFail ? 2.4 : 2}" marker-start="url(#arrowBlack)" marker-end="url(#arrowBlack)"/>
-        <rect x="${x - 48}" y="${(y1 + y2) / 2 - 14}" width="96" height="28" fill="white" stroke="${isFail ? "#c1121f" : "#111"}" stroke-width="${isFail ? 1.8 : 1.2}"/>
-        <text x="${x}" y="${(y1 + y2) / 2 + 5}" text-anchor="middle" font-family="Arial" font-size="10.5" font-weight="700" fill="${isFail ? "#c1121f" : "#111"}">${escHtml(label)}</text>
-      </g>
-    `;
-
-    if (isFail) {
-      svg += `
-        <g>
-          <circle cx="${x}" cy="${y1 - 16}" r="10" fill="#c1121f"/>
-          <text x="${x}" y="${y1 - 12}" text-anchor="middle" font-family="Arial" font-size="10" font-weight="800" fill="white">${p.failNo}</text>
-        </g>
-      `;
-    }
-  });
-
-  spanPts.forEach((p) => {
-    const x = xForFt(p.stationFt);
-    const y1 = layer3North + 14;
-    const y2 = layer3South;
-    const midY = (y1 + y2) / 2;
-    const isFail = !p.pass;
-
-    svg += `
-      <g>
-        <line x1="${x}" y1="${y1}" x2="${x}" y2="${y2}" stroke="${isFail ? "#c1121f" : "#111"}" stroke-width="${isFail ? 2.4 : 2}" marker-start="url(#arrowBlack)" marker-end="url(#arrowBlack)"/>
-        <rect x="${x - 46}" y="${midY - 16}" width="92" height="32" fill="white" stroke="${isFail ? "#c1121f" : "#111"}" stroke-width="${isFail ? 1.8 : 1.2}"/>
-        <text x="${x}" y="${midY - 1}" text-anchor="middle" font-family="Arial" font-size="10.5" font-weight="700" fill="${isFail ? "#c1121f" : "#111"}">${escHtml(p.valueIn.toFixed(3))} in</text>
-        <text x="${x}" y="${midY + 12}" text-anchor="middle" font-family="Arial" font-size="8.5" fill="${isFail ? "#c1121f" : "#111"}">Δ ${escHtml(p.deltaIn.toFixed(3))}</text>
-      </g>
-    `;
-
-    if (isFail) {
-      svg += `
-        <g>
-          <circle cx="${x}" cy="${y1 - 16}" r="10" fill="#c1121f"/>
-          <text x="${x}" y="${y1 - 12}" text-anchor="middle" font-family="Arial" font-size="10" font-weight="800" fill="white">${p.failNo}</text>
-        </g>
-      `;
-    }
-  });
-
-  const baselineBox = buildFailListBox(70, layer1ListTop, W - 140, "Layer 1 fail list", baselinePts);
-  const crossBox = buildFailListBox(70, layer2ListTop, W - 140, "Layer 2 fail list", crossPts);
-  const spanBox = buildFailListBox(70, layer3ListTop, W - 140, "Layer 3 fail list", spanPts);
-
-  svg += baselineBox.svg;
-  svg += crossBox.svg;
-  svg += spanBox.svg;
-
-  svg += `</svg>`;
-  return svg;
-}
-
-/* ---------------- Survey table ---------------- */
-
-function updateBeamInputUiLabels() {
-  const mode = getBeamInputMode();
-  const helperEl = document.getElementById("beamInputHelper");
-  if (helperEl) helperEl.textContent = beamHelperText(mode);
-
-  const northHeader = document.getElementById("beamHeaderN");
-  const southHeader = document.getElementById("beamHeaderS");
-  if (northHeader) northHeader.textContent = beamColumnHeaderLabel(mode, "N");
-  if (southHeader) southHeader.textContent = beamColumnHeaderLabel(mode, "S");
-}
-
-function buildSurveyStations() {
-  if (!surveyTbody) return;
-
-  const startFt = toNum(surveyStartFtEl?.value, 0);
-  const lenFt = toNum(surveyRunwayLengthFtEl?.value, 0);
-  const stepFt = toNum(surveyStationSpacingFtEl?.value, 10);
-  const useBeam = surveyUseBeamEl?.value === "yes";
-
-  if (lenFt <= 0 || stepFt <= 0) {
-    if (surveyStatusEl) surveyStatusEl.textContent = "Enter a valid runway length and station spacing.";
-    return;
-  }
-
-  const card = surveyTable.closest(".card");
-  if (card) card.classList.toggle("beamHidden", !useBeam);
-
-  if (!document.getElementById("beamInputReference") && surveyTable) {
-    const cardEl = surveyTable.closest(".card");
-    if (cardEl) {
-      const topWrap = document.createElement("div");
-      topWrap.className = "grid two-col";
-      topWrap.innerHTML = `
-        <label>
-          Beam input reference
-          <select id="beamInputReference">
-            <option value="centerline">Beam centerline entered directly</option>
-            <option value="webFace" selected>Beam web face entered — convert to centerline using web thickness / 2</option>
-          </select>
-        </label>
-        <div id="beamInputHelper" style="align-self:end; padding:8px 0; color:#444; font-size:12px;">
-          ${escHtml(beamHelperText("webFace"))}
-        </div>
-      `;
-      surveyTable.parentElement.insertBefore(topWrap, surveyTable);
-    }
-  }
-
-  const beamRefEl = document.getElementById("beamInputReference");
-  if (beamRefEl && !beamRefEl.dataset.bound) {
-    beamRefEl.dataset.bound = "1";
-    beamRefEl.addEventListener("change", () => {
-      latestBeamInputMode = getBeamInputMode();
-      updateBeamInputUiLabels();
-      buildSurveyStations();
-    });
-  }
-
-  latestBeamInputMode = getBeamInputMode();
-
-  surveyTbody.innerHTML = "";
-
-  const stations = [];
-  for (let ft = startFt; ft <= startFt + lenFt + 1e-9; ft += stepFt) {
-    stations.push(Number(ft.toFixed(3)));
-  }
-
-  const lastStation = stations[stations.length - 1];
-  const targetEnd = Number((startFt + lenFt).toFixed(3));
-  if (Math.abs((lastStation ?? 0) - targetEnd) > 1e-6) {
-    stations.push(targetEnd);
-  }
-
-  const mode = getBeamInputMode();
-  const headerN = beamColumnHeaderLabel(mode, "N");
-  const headerS = beamColumnHeaderLabel(mode, "S");
-
-  const thead = surveyTable.querySelector("thead");
-  if (thead) {
-    thead.innerHTML = `
-      <tr>
-        <th>Station (ft)</th>
-        <th>Rail N</th>
-        <th>Rail S</th>
-        <th class="beamCell" id="beamHeaderN">${escHtml(headerN)}</th>
-        <th class="beamCell" id="beamHeaderS">${escHtml(headerS)}</th>
-        <th>Pass/Fail N</th>
-        <th>Pass/Fail S</th>
-        <th>Rate N</th>
-        <th>Rate S</th>
-      </tr>
-    `;
-  }
-
-  for (const ft of stations) {
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td>${ft}</td>
-      <td><input data-k="railN" data-ft="${ft}" type="number" step="0.1" value="0"></td>
-      <td><input data-k="railS" data-ft="${ft}" type="number" step="0.1" value="0"></td>
-      <td class="beamCell"><input data-k="beamN" data-ft="${ft}" type="number" step="0.1" value="0"></td>
-      <td class="beamCell"><input data-k="beamS" data-ft="${ft}" type="number" step="0.1" value="0"></td>
-      <td class="pfN">—</td>
-      <td class="pfS">—</td>
-      <td class="rateN">—</td>
-      <td class="rateS">—</td>
-    `;
-    surveyTbody.appendChild(tr);
-  }
-
-  updateBeamInputUiLabels();
-
-  if (surveyStatusEl) {
-    surveyStatusEl.textContent = `Stations built: ${stations.length} rows (${startFt} to ${(startFt + lenFt).toFixed(0)} ft @ ${stepFt} ft). ${beamInputModeLabel()}`;
-  }
-
-  setSvgInner(straightnessSvgEl, emptySvg("Enter station offsets and click Evaluate & Render."));
-  setSvgInner(eccentricitySvgEl, emptySvg("Eccentricity disabled unless Beam inputs enabled."));
-}
-
-/* ---------------- Survey data ---------------- */
-
-function collectSurveyTable() {
-  if (!surveyTbody) return null;
-
-  const rows = Array.from(surveyTbody.querySelectorAll("tr"));
-  const stationFt = [];
-  const railN = [];
-  const railS = [];
-  const beamN = [];
-  const beamS = [];
-
-  for (const tr of rows) {
-    const ft = toNum(tr.children[0].textContent, NaN);
-    if (!Number.isFinite(ft)) continue;
-
-    const get = (k) => toNum(tr.querySelector(`input[data-k="${k}"]`)?.value, 0);
-
-    stationFt.push(ft);
-    railN.push(get("railN"));
-    railS.push(get("railS"));
-    beamN.push(get("beamN"));
-    beamS.push(get("beamS"));
-  }
-
-  return { stationFt, railN, railS, beamN, beamS };
-}
-
-/* ---------------- Survey evaluation ---------------- */
-
-function evaluateAndRenderSurvey() {
-  const data = collectSurveyTable();
-  if (!data || data.stationFt.length < 2) {
-    if (surveyStatusEl) surveyStatusEl.textContent = "Build stations first, then enter measurements.";
-    return;
-  }
-
-  const tol = toNum(surveyStraightTolEl?.value, 0.375);
-  const rateTol = toNum(surveyRateTolPer20El?.value, 0.25);
-  const useBeam = surveyUseBeamEl?.value === "yes";
-  const beamWebThickness = toNum(beamWebThicknessEl?.value, 0);
-  const zones = parseZones(eccZonesEl?.value);
-  const beamInputMode = getBeamInputMode();
-
-  latestBeamInputMode = beamInputMode;
-
-  const rateN = [];
-  const rateS = [];
-
-  for (let i = 0; i < data.stationFt.length; i++) {
-    if (i === 0) {
-      rateN.push(0);
-      rateS.push(0);
-      continue;
-    }
-    const dx = Math.max(1e-6, data.stationFt[i] - data.stationFt[i - 1]);
-    rateN.push(Math.abs(data.railN[i] - data.railN[i - 1]) * (20 / dx));
-    rateS.push(Math.abs(data.railS[i] - data.railS[i - 1]) * (20 / dx));
-  }
-
-  let passNAll = true;
-  let passSAll = true;
-
-  const trs = Array.from(surveyTbody.querySelectorAll("tr"));
-  trs.forEach((tr, i) => {
-    const nOK = Math.abs(data.railN[i]) <= tol && rateN[i] <= rateTol;
-    const sOK = Math.abs(data.railS[i]) <= tol && rateS[i] <= rateTol;
-
-    passNAll = passNAll && nOK;
-    passSAll = passSAll && sOK;
-
-    const pfN = tr.querySelector(".pfN");
-    const pfS = tr.querySelector(".pfS");
-    const rNCell = tr.querySelector(".rateN");
-    const rSCell = tr.querySelector(".rateS");
-
-    if (pfN) {
-      pfN.textContent = nOK ? "PASS" : "FAIL";
-      pfN.style.color = nOK ? "#0a7a2f" : "#c1121f";
-    }
-    if (pfS) {
-      pfS.textContent = sOK ? "PASS" : "FAIL";
-      pfS.style.color = sOK ? "#0a7a2f" : "#c1121f";
-    }
-    if (rNCell) {
-      rNCell.textContent = rateN[i].toFixed(3);
-      rNCell.style.color = rateN[i] <= rateTol ? "#111" : "#c1121f";
-    }
-    if (rSCell) {
-      rSCell.textContent = rateS[i].toFixed(3);
-      rSCell.style.color = rateS[i] <= rateTol ? "#111" : "#c1121f";
-    }
-  });
-
-  latestStraightnessChartSvg = buildChartSvg({
-    title: "RUNWAY STRAIGHTNESS SURVEY",
-    subtitleLeft: `Tolerance window: ±${tol.toFixed(3)} in`,
-    subtitleRight: `Rate-of-change limit: ${rateTol.toFixed(3)} in / 20 ft`,
-    stationFt: data.stationFt,
-    series: [
-      { y: data.railN, style: { stroke: "black", width: 2.4 } },
-      { y: data.railS, style: { stroke: "#666", width: 2.2, dash: "7 5" } },
-    ],
-    tolWindow: { type: "constant", tolIn: tol },
-  });
-  setSvgInner(straightnessSvgEl, latestStraightnessChartSvg);
-
-  if (useBeam) {
-    let beamCenterN;
-    let beamCenterS;
-
-    if (beamInputMode === "centerline") {
-      beamCenterN = data.beamN.map((v) => toNum(v, 0));
-      beamCenterS = data.beamS.map((v) => toNum(v, 0));
-    } else {
-      beamCenterN = data.beamN.map((v) => toNum(v, 0) + beamWebThickness / 2);
-      beamCenterS = data.beamS.map((v) => toNum(v, 0) + beamWebThickness / 2);
-    }
-
-    const eccN = data.railN.map((v, i) => v - beamCenterN[i]);
-    const eccS = data.railS.map((v, i) => v - beamCenterS[i]);
-
-    const eccTolWindow = zones ? { type: "zones", zones } : { type: "constant", tolIn: 0.5 };
-
-    latestEccentricityChartSvg = buildChartSvg({
-      title: "BEAM / RAIL ECCENTRICITY SURVEY",
-      subtitleLeft: beamInputModeLabel(beamInputMode),
-      subtitleRight: zones ? "Zone tolerances active" : "Default tolerance window shown",
-      stationFt: data.stationFt,
-      series: [
-        { y: eccN, style: { stroke: "black", width: 2.4 } },
-        { y: eccS, style: { stroke: "#666", width: 2.2, dash: "7 5" } },
-      ],
-      tolWindow: eccTolWindow,
-    });
-    setSvgInner(eccentricitySvgEl, latestEccentricityChartSvg);
-  } else {
-    latestEccentricityChartSvg = emptySvg("Eccentricity disabled unless Beam inputs enabled.");
-    setSvgInner(eccentricitySvgEl, latestEccentricityChartSvg);
-  }
-
-  if (surveyStatusEl) {
-    surveyStatusEl.textContent = `Survey evaluated. Straightness: N ${passNAll ? "PASS" : "FAIL"}, S ${passSAll ? "PASS" : "FAIL"}. ${beamInputModeLabel(beamInputMode)}`;
-  }
-}
-
-/* ---------------- PDF export ---------------- */
-
-function exportPdfReport() {
-  if (!latestRows.length) {
-    summary.textContent = "Run a compliance check first, then export to PDF.";
-    return;
-  }
-
-  latestMarkupDiagramSvg = buildThreeLayerMarkupSvgString();
-
-  const projectName = document.getElementById("projectName")?.value || "Unnamed Project";
-  const generatedAt = new Date().toLocaleString();
-
-  const rowsHtml = latestRows.map((row) => `
-    <tr>
-      <td>${escHtml(row.check)}</td>
-      <td>${escHtml(row.measuredText)}</td>
-      <td>${escHtml(row.allowedText)}</td>
-      <td>${row.pass ? "PASS" : "FAIL"}</td>
-      <td>${escHtml(row.reference)}</td>
-    </tr>
+function renderResultHighlights(rows) {
+  const passed = rows.filter((row) => row.pass).length;
+  const failed = rows.length - passed;
+  const surveyFailures = state.latestSurveySummary ? state.latestSurveySummary.failCount : 0;
+  const surveyStations = state.latestSurveySummary ? state.latestSurveySummary.stationCount : 0;
+
+  dom.resultHighlights.innerHTML = [
+    { klass: failed ? "bad" : "ok", value: failed, label: "Failed compliance checks" },
+    { klass: passed ? "ok" : "warn", value: passed, label: "Passed compliance checks" },
+    { klass: surveyFailures ? "bad" : "warn", value: surveyFailures, label: "Survey station failures" },
+    { klass: surveyStations ? "warn" : "", value: surveyStations, label: "Survey stations built" },
+  ].map((item) => `
+    <article class="highlightCard ${item.klass}">
+      <strong>${item.value}</strong>
+      <span>${escHtml(item.label)}</span>
+    </article>
   `).join("");
-
-  const suggestionHtml = suggestionList ? suggestionList.innerHTML : "<li>No suggestions panel enabled.</li>";
-
-  const popup = window.open("", "_blank");
-  if (!popup) {
-    summary.textContent = "Popup blocked. Please allow popups to export PDF.";
-    return;
-  }
-
-  popup.document.write(`
-    <html>
-      <head>
-        <title>Compliance Report - ${escHtml(projectName)}</title>
-        <style>
-          body { font-family: Arial, sans-serif; padding: 16px; }
-          table { width: 100%; border-collapse: collapse; margin-top: 12px; }
-          th, td { border: 1px solid #ccc; padding: 6px; text-align: left; font-size: 12px; vertical-align: top; }
-          h1 { margin: 0 0 6px; }
-          .meta { color: #444; margin-bottom: 10px; }
-          .box { margin: 14px 0 18px; border: 1px solid #ccc; padding: 10px; border-radius: 8px; page-break-inside: avoid; }
-          .note { font-size: 12px; color: #333; margin-top: 6px; }
-        </style>
-      </head>
-      <body>
-        <h1>Big G Steel - TR-13 Compliance Report</h1>
-        <div class="meta"><strong>Project:</strong> ${escHtml(projectName)}<br><strong>Generated:</strong> ${escHtml(generatedAt)}</div>
-
-        <div class="box">
-          <h2 style="margin:0 0 8px;">Three-Layer Markup Diagram</h2>
-          ${latestMarkupDiagramSvg}
-        </div>
-
-        <div class="box">
-          <h2 style="margin:0 0 8px;">Straightness Chart</h2>
-          ${latestStraightnessChartSvg || emptySvg("No straightness chart rendered yet.")}
-        </div>
-
-        <div class="box">
-          <h2 style="margin:0 0 8px;">Eccentricity Chart</h2>
-          ${latestEccentricityChartSvg || emptySvg("No eccentricity chart rendered yet.")}
-          <div class="note"><strong>${escHtml(beamInputModeLabel(latestBeamInputMode))}</strong></div>
-          <div class="note">Eccentricity equation: Rail Centerline - Beam Centerline</div>
-        </div>
-
-        <table>
-          <thead>
-            <tr><th>Check</th><th>Measured</th><th>Allowed</th><th>Status</th><th>Reference</th></tr>
-          </thead>
-          <tbody>${rowsHtml}</tbody>
-        </table>
-
-        <h2>Engineering Adjustment Suggestions</h2>
-        <ul>${suggestionHtml}</ul>
-      </body>
-    </html>
-  `);
-
-  popup.document.close();
-  popup.focus();
-  popup.print();
 }
-
-/* ---------------- Run compliance ---------------- */
 
 function runCompliance() {
   const profile = activeProfile();
@@ -1534,8 +579,7 @@ function runCompliance() {
 
   if (profile) {
     profile.checks.forEach((check) => {
-      const values = collectValues(check);
-      const result = check.evaluate(values);
+      const result = check.evaluate(collectValues(check));
       rows.push({
         check: check.label,
         measuredText: result.measuredText,
@@ -1547,13 +591,9 @@ function runCompliance() {
   }
 
   rows.push(...evaluateElevationRows());
-  latestRows = rows;
+  state.latestRows = rows;
 
-  renderSuggestions(rows);
-
-  const passed = rows.filter((row) => row.pass).length;
-
-  resultBody.innerHTML = rows.map((row) => `
+  dom.resultBody.innerHTML = rows.map((row) => `
     <tr>
       <td>${escHtml(row.check)}</td>
       <td>${escHtml(row.measuredText)}</td>
@@ -1563,81 +603,426 @@ function runCompliance() {
     </tr>
   `).join("");
 
-  summary.textContent = `${passed} of ${rows.length} checks passed for profile: ${profileSelect.value || "Default"}.`;
-  latestMarkupDiagramSvg = buildThreeLayerMarkupSvgString();
+  const passed = rows.filter((row) => row.pass).length;
+  dom.summary.textContent = `${passed} of ${rows.length} compliance checks passed. Review failed points before customer handoff.`;
+  renderSuggestions(rows);
+  renderResultHighlights(rows);
 }
 
-/* ---------------- Fractions Toggle ---------------- */
+function buildSurveyStations() {
+  const tbody = dom.surveyTable?.querySelector("tbody");
+  if (!tbody) return;
 
-function initFractionsToggle() {
-  const btn = document.getElementById("fracToggle");
-  const body = document.getElementById("fracBody");
-  if (!btn || !body) return;
+  const startFt = toNum(dom.surveyStartFt.value, 0);
+  const lenFt = toNum(dom.surveyRunwayLengthFt.value, 0);
+  const stepFt = toNum(dom.surveyStationSpacingFt.value, 10);
+  const useBeam = dom.surveyUseBeam.value === "yes";
 
-  const mq = window.matchMedia("(min-width: 900px)");
+  if (lenFt <= 0 || stepFt <= 0) {
+    dom.surveyStatus.textContent = "Enter a valid runway length and station spacing first.";
+    return;
+  }
 
-  const setState = (open) => {
-    body.hidden = !open;
-    btn.setAttribute("aria-expanded", String(open));
-    btn.textContent = open ? "Hide" : "Show";
+  dom.surveyTable.closest(".panel").classList.toggle("beamHidden", !useBeam);
+
+  const stations = [];
+  for (let ft = startFt; ft <= startFt + lenFt + 1e-9; ft += stepFt) {
+    stations.push(Number(ft.toFixed(3)));
+  }
+  const last = stations[stations.length - 1];
+  const targetEnd = Number((startFt + lenFt).toFixed(3));
+  if (Math.abs((last ?? 0) - targetEnd) > 1e-6) stations.push(targetEnd);
+
+  tbody.innerHTML = stations.map((ft) => `
+    <tr>
+      <td>${ft}</td>
+      <td><input data-k="railN" type="number" step="0.01" value="0"></td>
+      <td><input data-k="railS" type="number" step="0.01" value="0"></td>
+      <td class="beamCell"><input data-k="beamN" type="number" step="0.01" value="0"></td>
+      <td class="beamCell"><input data-k="beamS" type="number" step="0.01" value="0"></td>
+      <td class="pfN">-</td>
+      <td class="pfS">-</td>
+      <td class="rateN">-</td>
+      <td class="rateS">-</td>
+    </tr>
+  `).join("");
+
+  state.latestSurveySummary = {
+    stationCount: stations.length,
+    failCount: 0,
+    northStatus: "Not run",
+    southStatus: "Not run",
+  };
+  dom.surveyStatus.textContent = `Stations built: ${stations.length} rows from ${startFt} ft to ${targetEnd} ft at ${stepFt} ft spacing.`;
+  renderResultHighlights(state.latestRows);
+  setSvgInner(dom.straightnessSvg, emptySvg("Enter station offsets and click Evaluate and Render."));
+  setSvgInner(dom.eccentricitySvg, emptySvg("Beam eccentricity chart will render when beam inputs are enabled."));
+}
+
+function collectSurveyTable() {
+  const rows = Array.from(dom.surveyTable?.querySelectorAll("tbody tr") || []);
+  const data = { stationFt: [], railN: [], railS: [], beamN: [], beamS: [] };
+  rows.forEach((row) => {
+    const ft = toNum(row.children[0].textContent, NaN);
+    if (!Number.isFinite(ft)) return;
+    const read = (key) => toNum(row.querySelector(`input[data-k="${key}"]`)?.value, 0);
+    data.stationFt.push(ft);
+    data.railN.push(read("railN"));
+    data.railS.push(read("railS"));
+    data.beamN.push(read("beamN"));
+    data.beamS.push(read("beamS"));
+  });
+  return data.stationFt.length ? data : null;
+}
+
+function toleranceAtStation(tolWindow, stationFt) {
+  if (!tolWindow) return 0;
+  if (tolWindow.type === "constant") return tolWindow.tolIn;
+  const zone = tolWindow.zones.find((item) => stationFt >= item.startFt && stationFt <= item.endFt);
+  return zone ? zone.tolIn : tolWindow.zones[tolWindow.zones.length - 1]?.tolIn || 0;
+}
+
+function buildChartSvg({ title, leftLabel, rightLabel, stationFt, series, tolWindow }) {
+  if (!stationFt || stationFt.length < 2) return emptySvg("Not enough chart data.");
+
+  const width = 1100;
+  const height = 360;
+  const margin = { l: 78, r: 24, t: 58, b: 54 };
+  const plotWidth = width - margin.l - margin.r;
+  const plotHeight = height - margin.t - margin.b;
+  const xMin = Math.min(...stationFt);
+  const xMax = Math.max(...stationFt);
+  const xSpan = Math.max(1e-6, xMax - xMin);
+  const tolValues = stationFt.map((station) => Math.abs(toleranceAtStation(tolWindow, station)));
+  const maxSeriesValue = Math.max(
+    ...tolValues,
+    ...series.flatMap((set) => set.values.map((value) => Math.abs(toNum(value, 0)))),
+    0.4,
+  );
+  const yRange = Math.ceil(maxSeriesValue / 0.1) * 0.1;
+  const yMin = -yRange;
+  const yMax = yRange;
+
+  const xToPx = (value) => margin.l + ((value - xMin) / xSpan) * plotWidth;
+  const yToPx = (value) => margin.t + (1 - ((value - yMin) / (yMax - yMin))) * plotHeight;
+
+  const ticks = [];
+  for (let value = yMin; value <= yMax + 1e-9; value += 0.1) {
+    ticks.push(Number(value.toFixed(2)));
+  }
+
+  const pathFor = (points) => points.map((value, index) => (
+    `${index === 0 ? "M" : "L"} ${xToPx(stationFt[index])} ${yToPx(value)}`
+  )).join(" ");
+
+  let svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+      <rect x="0" y="0" width="${width}" height="${height}" fill="white" />
+      <text x="${margin.l}" y="26" font-family="Arial" font-size="18" font-weight="800">${escHtml(title)}</text>
+      <text x="${margin.l}" y="44" font-family="Arial" font-size="12">${escHtml(leftLabel)}</text>
+      <text x="${width - margin.r}" y="44" text-anchor="end" font-family="Arial" font-size="12">${escHtml(rightLabel)}</text>
+      <rect x="${margin.l}" y="${margin.t}" width="${plotWidth}" height="${plotHeight}" fill="white" stroke="#8ea0b7" />
+  `;
+
+  ticks.forEach((tick) => {
+    const y = yToPx(tick);
+    svg += `
+      <line x1="${margin.l}" y1="${y}" x2="${margin.l + plotWidth}" y2="${y}" stroke="${Math.abs(tick) < 1e-9 ? "#61758c" : "#e1e7ef"}" stroke-width="${Math.abs(tick) < 1e-9 ? "1.6" : "1"}" />
+      <text x="${margin.l - 10}" y="${y + 4}" text-anchor="end" font-family="Arial" font-size="10" fill="#5b6577">${tick.toFixed(1)}</text>
+    `;
+  });
+
+  stationFt.forEach((station, index) => {
+    const x = xToPx(station);
+    svg += `<line x1="${x}" y1="${margin.t + plotHeight}" x2="${x}" y2="${margin.t + plotHeight + 6}" stroke="#7b8798" />`;
+    if (stationFt.length <= 16 || index === 0 || index === stationFt.length - 1 || index % 2 === 0) {
+      svg += `<text x="${x}" y="${margin.t + plotHeight + 20}" text-anchor="middle" font-family="Arial" font-size="10" fill="#5b6577">${station.toFixed(0)}'</text>`;
+    }
+  });
+
+  const upperTol = stationFt.map((station) => toleranceAtStation(tolWindow, station));
+  const lowerTol = upperTol.map((value) => -value);
+  svg += `<path d="${pathFor(upperTol)}" fill="none" stroke="#c95f5f" stroke-width="1.4" stroke-dasharray="4 4" />`;
+  svg += `<path d="${pathFor(lowerTol)}" fill="none" stroke="#c95f5f" stroke-width="1.4" stroke-dasharray="4 4" />`;
+
+  series.forEach((set) => {
+    svg += `<path d="${pathFor(set.values)}" fill="none" stroke="${set.stroke}" stroke-width="${set.width}" ${set.dash ? `stroke-dasharray="${set.dash}"` : ""} />`;
+    set.values.forEach((value, index) => {
+      svg += `<circle cx="${xToPx(stationFt[index])}" cy="${yToPx(value)}" r="2.8" fill="${set.stroke}" />`;
+    });
+  });
+
+  svg += `
+      <line x1="${margin.l}" y1="${height - 16}" x2="${margin.l + 24}" y2="${height - 16}" stroke="#19364c" stroke-width="2.4" />
+      <text x="${margin.l + 30}" y="${height - 12}" font-family="Arial" font-size="10">North / Line 1</text>
+      <line x1="${margin.l + 140}" y1="${height - 16}" x2="${margin.l + 164}" y2="${height - 16}" stroke="#c47a3a" stroke-width="2.2" stroke-dasharray="6 4" />
+      <text x="${margin.l + 170}" y="${height - 12}" font-family="Arial" font-size="10">South / Line 2</text>
+    </svg>
+  `;
+
+  return svg;
+}
+
+function evaluateAndRenderSurvey() {
+  const data = collectSurveyTable();
+  if (!data || data.stationFt.length < 2) {
+    dom.surveyStatus.textContent = "Build the survey stations first, then enter measurements.";
+    return;
+  }
+
+  const straightTol = toNum(dom.surveyStraightTol.value, 0.375);
+  const rateTol = toNum(dom.surveyRateTolPer20.value, 0.25);
+  const useBeam = dom.surveyUseBeam.value === "yes";
+  const beamThickness = toNum(dom.beamWebThickness.value, 0);
+  const beamMode = getBeamInputMode();
+  const zones = parseZones(dom.eccZones.value);
+
+  const rateN = [];
+  const rateS = [];
+  for (let index = 0; index < data.stationFt.length; index += 1) {
+    if (index === 0) {
+      rateN.push(0);
+      rateS.push(0);
+      continue;
+    }
+    const deltaFt = Math.max(1e-6, data.stationFt[index] - data.stationFt[index - 1]);
+    rateN.push(Math.abs(data.railN[index] - data.railN[index - 1]) * (20 / deltaFt));
+    rateS.push(Math.abs(data.railS[index] - data.railS[index - 1]) * (20 / deltaFt));
+  }
+
+  let northOk = true;
+  let southOk = true;
+  let failCount = 0;
+
+  const rows = Array.from(dom.surveyTable.querySelectorAll("tbody tr"));
+  rows.forEach((row, index) => {
+    const passN = Math.abs(data.railN[index]) <= straightTol && rateN[index] <= rateTol;
+    const passS = Math.abs(data.railS[index]) <= straightTol && rateS[index] <= rateTol;
+    northOk = northOk && passN;
+    southOk = southOk && passS;
+    if (!passN) failCount += 1;
+    if (!passS) failCount += 1;
+
+    row.querySelector(".pfN").textContent = passN ? "PASS" : "FAIL";
+    row.querySelector(".pfN").style.color = passN ? "#146c43" : "#b42318";
+    row.querySelector(".pfS").textContent = passS ? "PASS" : "FAIL";
+    row.querySelector(".pfS").style.color = passS ? "#146c43" : "#b42318";
+    row.querySelector(".rateN").textContent = rateN[index].toFixed(3);
+    row.querySelector(".rateN").style.color = rateN[index] <= rateTol ? "#172033" : "#b42318";
+    row.querySelector(".rateS").textContent = rateS[index].toFixed(3);
+    row.querySelector(".rateS").style.color = rateS[index] <= rateTol ? "#172033" : "#b42318";
+  });
+
+  state.latestStraightnessChartSvg = buildChartSvg({
+    title: "Runway Straightness Survey",
+    leftLabel: `Tolerance window: +/-${straightTol.toFixed(3)} in`,
+    rightLabel: `Rate of change limit: ${rateTol.toFixed(3)} in / 20 ft`,
+    stationFt: data.stationFt,
+    series: [
+      { values: data.railN, stroke: "#19364c", width: 2.6 },
+      { values: data.railS, stroke: "#c47a3a", width: 2.2, dash: "6 4" },
+    ],
+    tolWindow: { type: "constant", tolIn: straightTol },
+  });
+  setSvgInner(dom.straightnessSvg, state.latestStraightnessChartSvg);
+
+  if (useBeam) {
+    const beamN = beamMode === "centerline"
+      ? data.beamN
+      : data.beamN.map((value) => toNum(value, 0) + beamThickness / 2);
+    const beamS = beamMode === "centerline"
+      ? data.beamS
+      : data.beamS.map((value) => toNum(value, 0) + beamThickness / 2);
+    const eccN = data.railN.map((value, index) => value - beamN[index]);
+    const eccS = data.railS.map((value, index) => value - beamS[index]);
+    const toleranceWindow = zones.length ? { type: "zones", zones } : { type: "constant", tolIn: 0.5 };
+
+    state.latestEccentricityChartSvg = buildChartSvg({
+      title: "Beam-to-Rail Eccentricity Survey",
+      leftLabel: beamMode === "centerline"
+        ? "Beam input basis: centerline entered directly"
+        : "Beam input basis: web face entered, centerline derived from web thickness / 2",
+      rightLabel: zones.length ? "Zone tolerances active" : "Default tolerance band shown",
+      stationFt: data.stationFt,
+      series: [
+        { values: eccN, stroke: "#19364c", width: 2.6 },
+        { values: eccS, stroke: "#c47a3a", width: 2.2, dash: "6 4" },
+      ],
+      tolWindow: toleranceWindow,
+    });
+    setSvgInner(dom.eccentricitySvg, state.latestEccentricityChartSvg);
+  } else {
+    state.latestEccentricityChartSvg = emptySvg("Beam inputs are off. Turn them on to render eccentricity.");
+    setSvgInner(dom.eccentricitySvg, state.latestEccentricityChartSvg);
+  }
+
+  state.latestSurveySummary = {
+    stationCount: data.stationFt.length,
+    failCount,
+    northStatus: northOk ? "PASS" : "FAIL",
+    southStatus: southOk ? "PASS" : "FAIL",
   };
 
-  setState(mq.matches);
+  dom.surveyStatus.textContent = `Survey evaluated. North line: ${state.latestSurveySummary.northStatus}. South line: ${state.latestSurveySummary.southStatus}.`;
+  renderResultHighlights(state.latestRows);
+}
 
-  btn.addEventListener("click", (e) => {
-    e.preventDefault();
-    setState(body.hidden);
-  });
+function buildReportHtml() {
+  const project = getProjectData();
+  const rowsHtml = state.latestRows.length ? state.latestRows.map((row) => `
+    <tr>
+      <td>${escHtml(row.check)}</td>
+      <td>${escHtml(row.measuredText)}</td>
+      <td>${escHtml(row.allowedText)}</td>
+      <td>${row.pass ? "PASS" : "FAIL"}</td>
+      <td>${escHtml(row.reference)}</td>
+    </tr>
+  `).join("") : `<tr><td colspan="5">No compliance check has been run yet.</td></tr>`;
 
-  window.addEventListener("resize", () => {
-    if (mq.matches) setState(true);
+  const surveySummaryHtml = state.latestSurveySummary ? `
+    <p><strong>Survey stations:</strong> ${state.latestSurveySummary.stationCount}</p>
+    <p><strong>North line:</strong> ${state.latestSurveySummary.northStatus}</p>
+    <p><strong>South line:</strong> ${state.latestSurveySummary.southStatus}</p>
+    <p><strong>Survey failures:</strong> ${state.latestSurveySummary.failCount}</p>
+  ` : "<p>No station-by-station survey has been evaluated yet.</p>";
+
+  const suggestionsHtml = dom.suggestionList?.innerHTML || "<li>No suggestions listed.</li>";
+
+  return `
+    <html>
+      <head>
+        <title>${escHtml(project.projectName || "Big G Steel Survey Report")}</title>
+        <style>
+          body { font-family: Arial, sans-serif; padding: 18px; color: #172033; }
+          h1, h2 { margin: 0 0 8px; }
+          .meta, .box { margin-bottom: 18px; }
+          .box { border: 1px solid #d7deeb; border-radius: 10px; padding: 12px; page-break-inside: avoid; }
+          table { width: 100%; border-collapse: collapse; }
+          th, td { border: 1px solid #d7deeb; padding: 6px 8px; text-align: left; font-size: 12px; vertical-align: top; }
+          th { background: #f5f8fc; }
+          svg { max-width: 100%; height: auto; }
+        </style>
+      </head>
+      <body>
+        <h1>Big G Steel Rail Survey Report</h1>
+        <div class="meta">
+          <strong>Project:</strong> ${escHtml(project.projectName || "Unnamed Project")}<br>
+          <strong>Customer:</strong> ${escHtml(project.customerName || "Not entered")}<br>
+          <strong>Location:</strong> ${escHtml(project.facilityLocation || "Not entered")}<br>
+          <strong>Service / Bay:</strong> ${escHtml(project.serviceArea || "Not entered")}<br>
+          <strong>Survey Date:</strong> ${escHtml(project.surveyDate || "Not entered")}<br>
+          <strong>Surveyors:</strong> ${escHtml(project.surveyors || "Not entered")}<br>
+          <strong>Report / Job Number:</strong> ${escHtml(project.reportNumber || "Not entered")}<br>
+          <strong>System Snapshot:</strong> ${escHtml(formatProjectSnapshot(project))}
+        </div>
+
+        <div class="box">
+          <h2>Scope Backbone</h2>
+          <p>This field tool follows the same reporting backbone reflected in the attached runway survey PDFs: project context, system data, measured stationing, tolerance checks, pass/fail review, and adjustment guidance.</p>
+        </div>
+
+        <div class="box">
+          <h2>Compliance Results</h2>
+          <table>
+            <thead>
+              <tr><th>Check</th><th>Measured</th><th>Allowed</th><th>Status</th><th>Reference</th></tr>
+            </thead>
+            <tbody>${rowsHtml}</tbody>
+          </table>
+        </div>
+
+        <div class="box">
+          <h2>Station Survey Summary</h2>
+          ${surveySummaryHtml}
+        </div>
+
+        <div class="box">
+          <h2>Straightness Chart</h2>
+          ${state.latestStraightnessChartSvg || emptySvg("No straightness chart rendered yet.")}
+        </div>
+
+        <div class="box">
+          <h2>Eccentricity Chart</h2>
+          ${state.latestEccentricityChartSvg || emptySvg("No eccentricity chart rendered yet.")}
+        </div>
+
+        <div class="box">
+          <h2>Field Adjustment Suggestions</h2>
+          <ul>${suggestionsHtml}</ul>
+        </div>
+      </body>
+    </html>
+  `;
+}
+
+function exportPdfReport() {
+  const popup = window.open("", "_blank");
+  if (!popup) {
+    dom.summary.textContent = "The browser blocked the report window. Allow popups to print or save the report.";
+    return;
+  }
+  popup.document.write(buildReportHtml());
+  popup.document.close();
+  popup.focus();
+  popup.print();
+}
+
+function initFractionToggle() {
+  if (!dom.fracToggle || !dom.fracBody) return;
+  const setState = (isOpen) => {
+    dom.fracBody.hidden = !isOpen;
+    dom.fracToggle.setAttribute("aria-expanded", String(isOpen));
+    dom.fracToggle.textContent = isOpen ? "Hide" : "Show";
+  };
+  setState(window.matchMedia("(min-width: 1000px)").matches);
+  dom.fracToggle.addEventListener("click", () => setState(dom.fracBody.hidden));
+}
+
+function setDefaultDate() {
+  const today = new Date();
+  const year = String(today.getFullYear());
+  const month = String(today.getMonth() + 1).padStart(2, "0");
+  const day = String(today.getDate()).padStart(2, "0");
+  const dateField = $("surveyDate");
+  if (dateField && !dateField.value) {
+    dateField.value = `${year}-${month}-${day}`;
+  }
+}
+
+function bindProjectFields() {
+  projectFieldIds.forEach((id) => {
+    const field = $(id);
+    if (!field) return;
+    field.addEventListener("input", renderProjectSnapshot);
   });
 }
 
-/* ---------------- Init ---------------- */
-
 function init() {
-  if (!assertRequiredDom()) return;
-
-  initFractionsToggle();
-
+  buildFractionGrid();
+  initFractionToggle();
   buildProfileOptions();
-  const names = Object.keys(profiles);
-  if (names.length) {
-    profileSelect.value = names[0];
-  }
-
   renderForm();
+  setDefaultDate();
+  renderProjectSnapshot();
   buildLayout();
-  autoPopulateSurveyRunwayLength();
   buildSurveyStations();
+  setSvgInner(dom.straightnessSvg, emptySvg("Enter station offsets and click Evaluate and Render."));
+  setSvgInner(dom.eccentricitySvg, emptySvg("Beam eccentricity chart will render when beam inputs are enabled."));
 
-  profileSelect.addEventListener("change", () => {
+  dom.profileSelect.addEventListener("change", () => {
     renderForm();
-    resultBody.innerHTML = "";
-    summary.textContent = "Inputs updated. Run the compliance check.";
+    dom.summary.textContent = `${activeProfile().summary} Run the compliance check after entering measurements.`;
   });
 
-  buildLayoutBtn.addEventListener("click", () => {
-    buildLayout();
-  });
-
-  runBtn.addEventListener("click", runCompliance);
-  exportPdfBtn.addEventListener("click", exportPdfReport);
-
-  if (buildSurveyStationsBtn) {
-    buildSurveyStationsBtn.addEventListener("click", buildSurveyStations);
-  }
-
-  if (evaluateSurveyBtn) {
-    evaluateSurveyBtn.addEventListener("click", evaluateAndRenderSurvey);
-  }
-
-  if (surveyUseBeamEl) {
-    surveyUseBeamEl.addEventListener("change", () => {
-      buildSurveyStations();
-    });
-  }
+  dom.buildLayoutBtn.addEventListener("click", buildLayout);
+  dom.runBtn.addEventListener("click", runCompliance);
+  dom.buildSurveyStationsBtn.addEventListener("click", buildSurveyStations);
+  dom.evaluateSurveyBtn.addEventListener("click", evaluateAndRenderSurvey);
+  dom.exportPdfBtn.addEventListener("click", exportPdfReport);
+  dom.surveyUseBeam.addEventListener("change", buildSurveyStations);
+  dom.beamInputReference.addEventListener("change", buildSurveyStations);
+  bindProjectFields();
+  renderResultHighlights([]);
 }
 
 window.addEventListener("load", init);
