@@ -1,297 +1,373 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="theme-color" content="#146bb5" />
-
-  <link rel="manifest" href="./manifest.webmanifest" />
-  <link rel="icon" href="data:," />
-  <title>Big G Steel - TR-13 Crane Tolerance Checker</title>
-
-  <link rel="stylesheet" href="./style.css" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#19364c">
+  <title>Big G Steel Survey Tool</title>
+  <link rel="stylesheet" href="./style.css">
 </head>
-
 <body>
-  <header class="pageHeader">
-    <div class="titleStack">
-      <div class="titleLine">Big G Steel</div>
-      <div class="titleLine">Overhead Crane Installation Tolerance Checker</div>
-      <div class="titleLine">TR-13 / CMAA Field Check</div>
+  <header class="hero">
+    <div class="heroInner">
+      <div class="brandMark">
+        <div class="brandBadge">BG</div>
+        <div class="brandLockup">
+          <span class="brandName">Big G Steel</span>
+          <span class="brandTag">Crane &amp; Material Handling Solutions</span>
+        </div>
+      </div>
+      <div class="eyebrow">Big G Steel Field App</div>
+      <h1>Rail Survey and TR-13 Field Review Tool</h1>
+      <p class="heroCopy">
+        Built for field crews to capture runway survey data, check fit-up against project tolerances,
+        and hand back a cleaner customer-ready summary with clear adjustment guidance.
+      </p>
+      <div class="heroMeta">
+        <div>
+          <strong>Purpose</strong>
+          <span>Field capture, tolerance review, and cleaner customer handoff</span>
+        </div>
+        <div>
+          <strong>Backbone</strong>
+          <span>Modeled from real runway survey reporting flow</span>
+        </div>
+      </div>
     </div>
   </header>
 
-  <main class="container">
+  <main class="pageShell">
+    <section class="band introBand">
+      <div class="introGrid cleanIntro">
+        <article class="panel emphasis introPrimary">
+          <h2>What This Tool Should Give The Crew</h2>
+          <ul class="checkList">
+            <li>Fast project setup before measurements start</li>
+            <li>Clear runway stationing and side labeling</li>
+            <li>Straightness, rail-to-rail, span, and eccentricity checks in one place</li>
+            <li>Cleaner language for the customer handoff</li>
+            <li>Suggested corrective actions for failed points</li>
+          </ul>
+        </article>
 
-    <section class="card">
-      <h2>Project Details</h2>
-
-      <div class="grid two-col">
-        <label class="field">
-          <span class="labelText">Project name</span>
-          <input id="projectName" type="text" placeholder="Plant A - Runway Line 2" />
-        </label>
-
-        <label class="field">
-          <span class="labelText">Spec profile</span>
-          <select id="profileSelect"></select>
-        </label>
+        <article class="panel introSecondary">
+          <h2>Survey Backbone</h2>
+          <p>
+            This flow is modeled after the attached runway survey reports: project details, system data,
+            measured stationing, tolerance checks, reporting notes, and adjustment guidance.
+          </p>
+          <div class="referenceList">
+            <span>AIST TR-13</span>
+            <span>CMAA 70 / 74</span>
+            <span>ASTM A6</span>
+          </div>
+        </article>
       </div>
     </section>
 
-    <section class="card">
-      <h2>Column Layout &amp; Station Setup</h2>
+    <section class="band">
+      <div class="sectionHead">
+        <div>
+          <div class="sectionEyebrow">Step 1</div>
+          <h2>Project and System Data</h2>
+        </div>
+      </div>
 
-      <section class="card fracCard fracSticky" id="fracSticky">
-        <div class="fracHeader">
-          <div>
-            <h2 class="fracTitle">Fractions → Decimals</h2>
-            <div class="fracSubtle">Quick shim reference (inches)</div>
-          </div>
+      <div class="panel">
+        <div class="stageGrid projectStageGrid">
+          <section class="formStage">
+            <div class="stageLabel">Project setup</div>
+            <div class="grid twoColWide">
+              <label class="field">
+                <span>Customer / Owner</span>
+                <input id="customerName" type="text" placeholder="Big G Steel customer">
+              </label>
+              <label class="field">
+                <span>Project Name</span>
+                <input id="projectName" type="text" placeholder="Plant A - Runway Line 2">
+              </label>
+              <label class="field">
+                <span>Facility Location</span>
+                <input id="facilityLocation" type="text" placeholder="City, State">
+              </label>
+              <label class="field">
+                <span>Service / Bay</span>
+                <input id="serviceArea" type="text" placeholder="Bay 5 Shipping">
+              </label>
+              <label class="field">
+                <span>Survey Date</span>
+                <input id="surveyDate" type="date">
+              </label>
+              <label class="field">
+                <span>Surveyors</span>
+                <input id="surveyors" type="text" placeholder="Field crew names">
+              </label>
+              <label class="field">
+                <span>Report / Job Number</span>
+                <input id="reportNumber" type="text" placeholder="Optional report number">
+              </label>
+              <label class="field">
+                <span>Spec Profile</span>
+                <select id="profileSelect"></select>
+              </label>
+            </div>
+          </section>
 
-          <button id="fracToggle" class="fracToggle" type="button"
-                  aria-controls="fracBody" aria-expanded="false">
-            Show
-          </button>
+          <section class="formStage">
+            <div class="stageLabel">Crane system data</div>
+            <div class="grid twoColWide">
+              <label class="field">
+                <span>Crane Manufacturer</span>
+                <input id="craneManufacturer" type="text" placeholder="Deshazo">
+              </label>
+              <label class="field">
+                <span>Capacity</span>
+                <input id="capacity" type="text" placeholder="40-ton">
+              </label>
+              <label class="field">
+                <span>Reference Span</span>
+                <input id="spanLabel" type="text" placeholder="100'-0&quot;">
+              </label>
+              <label class="field">
+                <span>Service Class</span>
+                <input id="serviceClass" type="text" placeholder="E (Severe)">
+              </label>
+              <label class="field">
+                <span>Runway Manufacturer</span>
+                <input id="runwayManufacturer" type="text" placeholder="Runway fabricator">
+              </label>
+              <label class="field">
+                <span>Rail Size</span>
+                <input id="railSize" type="text" placeholder="CR171">
+              </label>
+              <label class="field fieldFull">
+                <span>Device / Method</span>
+                <input id="surveyDevice" type="text" value="Laser scan / field verification">
+              </label>
+            </div>
+          </section>
         </div>
 
-        <div class="fracBody" id="fracBody" hidden>
-          <div class="fracGrid3" aria-label="Fractions to decimals chart">
-            <div class="fracRow"><span>1/32</span><span>=</span><span>0.03125</span></div>
-            <div class="fracRow"><span>1/16</span><span>=</span><span>0.06250</span></div>
-            <div class="fracRow"><span>3/32</span><span>=</span><span>0.09375</span></div>
-            <div class="fracRow"><span>1/8</span><span>=</span><span>0.12500</span></div>
-            <div class="fracRow"><span>5/32</span><span>=</span><span>0.15625</span></div>
-            <div class="fracRow"><span>3/16</span><span>=</span><span>0.18750</span></div>
-            <div class="fracRow"><span>7/32</span><span>=</span><span>0.21875</span></div>
-            <div class="fracRow"><span>1/4</span><span>=</span><span>0.25000</span></div>
-            <div class="fracRow"><span>9/32</span><span>=</span><span>0.28125</span></div>
-            <div class="fracRow"><span>5/16</span><span>=</span><span>0.31250</span></div>
-            <div class="fracRow"><span>11/32</span><span>=</span><span>0.34375</span></div>
-            <div class="fracRow"><span>3/8</span><span>=</span><span>0.37500</span></div>
-            <div class="fracRow"><span>13/32</span><span>=</span><span>0.40625</span></div>
-            <div class="fracRow"><span>7/16</span><span>=</span><span>0.43750</span></div>
-            <div class="fracRow"><span>15/32</span><span>=</span><span>0.46875</span></div>
-            <div class="fracRow"><span>1/2</span><span>=</span><span>0.50000</span></div>
+        <section class="formStage notesStage">
+          <div class="stageLabel">Field notes</div>
+          <label class="field">
+            <span>Site Conditions / Constraints / Customer Notes</span>
+            <textarea id="projectNotes" rows="3" placeholder="Use this for access notes, constraint notes, sequence notes, or customer comments."></textarea>
+          </label>
+          <div id="projectSnapshot" class="summaryCard"></div>
+        </section>
+      </div>
+    </section>
 
-            <div class="fracRow"><span>17/32</span><span>=</span><span>0.53125</span></div>
-            <div class="fracRow"><span>9/16</span><span>=</span><span>0.56250</span></div>
-            <div class="fracRow"><span>19/32</span><span>=</span><span>0.59375</span></div>
-            <div class="fracRow"><span>5/8</span><span>=</span><span>0.62500</span></div>
-            <div class="fracRow"><span>21/32</span><span>=</span><span>0.65625</span></div>
-            <div class="fracRow"><span>11/16</span><span>=</span><span>0.68750</span></div>
-            <div class="fracRow"><span>23/32</span><span>=</span><span>0.71875</span></div>
-            <div class="fracRow"><span>3/4</span><span>=</span><span>0.75000</span></div>
-            <div class="fracRow"><span>25/32</span><span>=</span><span>0.78125</span></div>
-            <div class="fracRow"><span>13/16</span><span>=</span><span>0.81250</span></div>
-            <div class="fracRow"><span>27/32</span><span>=</span><span>0.84375</span></div>
-            <div class="fracRow"><span>7/8</span><span>=</span><span>0.87500</span></div>
-            <div class="fracRow"><span>29/32</span><span>=</span><span>0.90625</span></div>
-            <div class="fracRow"><span>15/16</span><span>=</span><span>0.93750</span></div>
-            <div class="fracRow"><span>31/32</span><span>=</span><span>0.96875</span></div>
-            <div class="fracRow"><span>1</span><span>=</span><span>1.00000</span></div>
+    <section class="band">
+      <div class="sectionHead">
+        <div>
+          <div class="sectionEyebrow">Step 2</div>
+          <h2>Column Layout and Elevation Inputs</h2>
+        </div>
+      </div>
 
-            <div class="fracRow fracQuick"><span>1/8</span><span>=</span><span>0.125</span></div>
-            <div class="fracRow fracQuick"><span>3/16</span><span>=</span><span>0.1875</span></div>
-            <div class="fracRow fracQuick"><span>1/4</span><span>=</span><span>0.25</span></div>
-            <div class="fracRow fracQuick"><span>5/16</span><span>=</span><span>0.3125</span></div>
-            <div class="fracRow fracQuick"><span>3/8</span><span>=</span><span>0.375</span></div>
-            <div class="fracRow fracQuick"><span>7/16</span><span>=</span><span>0.4375</span></div>
-            <div class="fracRow fracQuick"><span>1/2</span><span>=</span><span>0.5</span></div>
-            <div class="fracRow fracQuick"><span>5/8</span><span>=</span><span>0.625</span></div>
-            <div class="fracRow fracQuick"><span>3/4</span><span>=</span><span>0.75</span></div>
-            <div class="fracRow fracQuick"><span>7/8</span><span>=</span><span>0.875</span></div>
-            <div class="fracRow fracQuick"><span>1/16</span><span>=</span><span>0.0625</span></div>
-            <div class="fracRow fracQuick"><span>1/32</span><span>=</span><span>0.03125</span></div>
+      <div class="panel">
+        <section class="formStage">
+          <div class="stageLabel">Layout setup</div>
+          <div class="grid threeCol">
+            <label class="field">
+              <span>Columns per Side</span>
+              <input id="columnsPerSide" type="number" min="2" value="3">
+            </label>
+
+            <label class="field">
+              <span>Measured Station Distance (ft)</span>
+              <input id="measuredStationDistance" type="number" min="1" value="10">
+            </label>
+
+            <label class="field">
+              <span>Direction Labels</span>
+              <select id="directionPair">
+                <option value="North|South">North / South</option>
+                <option value="East|West">East / West</option>
+              </select>
+            </label>
+          </div>
+        </section>
+
+        <div class="utilityRow">
+          <div class="fracPanel">
+            <div class="fracTop">
+              <div>
+                <h3>Fractions to Decimals</h3>
+                <p>Quick shim reference for field adjustment calls.</p>
+              </div>
+              <button id="fracToggle" class="btn ghost" type="button" aria-controls="fracBody" aria-expanded="false">Show</button>
+            </div>
+            <div id="fracBody" class="fracBody" hidden></div>
+          </div>
+
+          <div class="setupCard">
+            <h3>Field Sequence</h3>
+            <ol class="sequenceList">
+              <li>Set the column count and actual bay spacing.</li>
+              <li>Enter top-of-rail elevation readings by station.</li>
+              <li>Confirm rail-to-rail and span results.</li>
+              <li>Run the compliance summary before leaving the bay.</li>
+            </ol>
           </div>
         </div>
-      </section>
 
-      <div class="grid three-col">
-        <label class="field">
-          <span class="labelText">Columns per side</span>
-          <input id="columnsPerSide" type="number" min="2" value="3" />
-        </label>
+        <div class="actions actionsWide">
+          <button id="buildLayout" class="btn secondary" type="button">Build Column Layout</button>
+          <button id="runCheck" class="btn primary" type="button">Run Compliance Check</button>
+        </div>
 
-        <label class="field">
-          <span class="labelText">Measured station distance (ft)</span>
-          <input id="measuredStationDistance" type="number" min="1" value="10" />
-        </label>
-
-        <label class="field">
-          <span class="labelText">Direction labels for side pair</span>
-          <select id="directionPair">
-            <option value="North|South">North / South</option>
-            <option value="East|West">East / West</option>
-          </select>
-        </label>
-      </div>
-
-      <div class="actions">
-        <button id="buildLayout" class="btn secondary" type="button">Build Column Layout</button>
-      </div>
-
-      <div id="layoutContainer" class="stack"></div>
-
-      <p class="subtle">
-        Enter actual column-to-column distances. The app uses measured station distance to generate station points.
-      </p>
-    </section>
-
-    <section class="card">
-      <h2>Measurements</h2>
-      <form id="measurementForm" class="formList"></form>
-
-      <div class="actions">
-        <button id="runCheck" class="btn primary" type="button">Run Compliance Check</button>
+        <div id="layoutContainer" class="stack measurementStack"></div>
       </div>
     </section>
 
-    <section class="card">
-      <h2>Straightness &amp; Eccentricity Survey (Station-by-Station)</h2>
-
-      <p class="subtle">
-        Stations auto-populate. Enter <strong>horizontal offsets</strong> in inches at each station.
-        This produces straightness and eccentricity charts plus PASS/FAIL.
-      </p>
-
-      <div class="grid three-col">
-        <label class="field">
-          <span class="labelText">Runway length (ft)</span>
-          <input id="surveyRunwayLengthFt" type="number" step="any" value="0" />
-        </label>
-
-        <label class="field">
-          <span class="labelText">Station spacing (ft)</span>
-          <input id="surveyStationSpacingFt" type="number" step="any" value="10" />
-        </label>
-
-        <label class="field">
-          <span class="labelText">Start station (ft)</span>
-          <input id="surveyStartFt" type="number" step="any" value="0" />
-        </label>
+    <section class="band">
+      <div class="sectionHead">
+        <div>
+          <div class="sectionEyebrow">Step 3</div>
+          <h2>Straightness and Eccentricity Survey</h2>
+        </div>
       </div>
 
-      <div class="grid three-col">
-        <label class="field">
-          <span class="labelText">Straightness tolerance window (± in)</span>
-          <input id="surveyStraightTol" type="number" step="any" value="0.375" />
-        </label>
-
-        <label class="field">
-          <span class="labelText">Max rate of change (in per 20 ft)</span>
-          <input id="surveyRateTolPer20" type="number" step="any" value="0.25" />
-        </label>
-
-        <label class="field">
-          <span class="labelText">Enable beam inputs (eccentricity)</span>
-          <select id="surveyUseBeam">
-            <option value="no" selected>No (straightness only)</option>
-            <option value="yes">Yes (straightness + eccentricity)</option>
-          </select>
-        </label>
-      </div>
-
-      <div class="grid two-col">
-        <label class="field">
-          <span class="labelText">Beam Web Thickness (in)</span>
-          <input id="beamWebThickness" type="number" step="any" value="0.500" />
-        </label>
-      </div>
-
-      <details class="subtle" style="margin-top:10px;">
-        <summary><strong>Eccentricity tolerance zones (optional)</strong></summary>
-        <p style="margin-top:8px;">
-          One zone per line: <code>StartFt,EndFt,ToleranceIn</code>
+      <div class="panel">
+        <p class="sectionLead">
+          Enter station-by-station horizontal offsets in inches. The tool builds straightness,
+          rate-of-change, and eccentricity results for both rails.
         </p>
-        <textarea id="eccZones" rows="5">0,300,0.630
+
+        <div class="grid surveyGrid">
+          <label class="field">
+            <span>Runway Length (ft)</span>
+            <input id="surveyRunwayLengthFt" type="number" step="any" value="0">
+          </label>
+          <label class="field">
+            <span>Station Spacing (ft)</span>
+            <input id="surveyStationSpacingFt" type="number" step="any" value="10">
+          </label>
+          <label class="field">
+            <span>Start Station (ft)</span>
+            <input id="surveyStartFt" type="number" step="any" value="0">
+          </label>
+          <label class="field">
+            <span>Straightness Tolerance (± in)</span>
+            <input id="surveyStraightTol" type="number" step="any" value="0.375">
+          </label>
+          <label class="field">
+            <span>Max Rate Change (in per 20 ft)</span>
+            <input id="surveyRateTolPer20" type="number" step="any" value="0.25">
+          </label>
+          <label class="field">
+            <span>Enable Beam Inputs</span>
+            <select id="surveyUseBeam">
+              <option value="no" selected>No</option>
+              <option value="yes">Yes</option>
+            </select>
+          </label>
+          <label class="field fieldCompact">
+            <span>Beam Web Thickness (in)</span>
+            <input id="beamWebThickness" type="number" step="any" value="0.500">
+          </label>
+          <label class="field fieldFull">
+            <span>Eccentricity Tolerance Zones</span>
+            <textarea id="eccZones" rows="5">0,300,0.630
 300,325,0.454
 325,465,0.765
 465,700,0.630</textarea>
-      </details>
-
-      <div class="actions">
-        <button id="buildSurveyStations" class="btn secondary" type="button">Build Stations</button>
-        <button id="evaluateSurvey" class="btn primary" type="button">Evaluate &amp; Render</button>
-      </div>
-
-      <div id="surveyStatus" class="summary">No survey table built yet.</div>
-
-      <div class="tableWrap" style="margin-top:12px;">
-        <table id="surveyTable" aria-label="Survey station inputs">
-          <thead>
-            <tr>
-              <th>Station (ft)</th>
-              <th>Rail N (in)</th>
-              <th>Rail S (in)</th>
-              <th class="beamCol">Beam N (in)</th>
-              <th class="beamCol">Beam S (in)</th>
-              <th>N Status</th>
-              <th>S Status</th>
-              <th>Rate N</th>
-              <th>Rate S</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-
-      <div class="stack" style="gap:16px; margin-top:12px;">
-        <div class="svgFrame">
-          <svg id="straightnessSvg" width="1100" height="360" viewBox="0 0 1100 360" role="img" aria-label="Straightness plot"></svg>
+          </label>
         </div>
 
-        <div class="svgFrame">
-          <svg id="eccentricitySvg" width="1100" height="360" viewBox="0 0 1100 360" role="img" aria-label="Eccentricity plot"></svg>
+        <div class="actions actionsWide">
+          <button id="buildSurveyStations" class="btn secondary" type="button">Build Stations</button>
+          <button id="evaluateSurvey" class="btn primary" type="button">Evaluate and Render</button>
+        </div>
+
+        <div id="surveyStatus" class="summaryCard">No survey table built yet.</div>
+
+        <div class="tableShell">
+          <table id="surveyTable" aria-label="Survey station inputs">
+            <thead>
+              <tr>
+                <th>Station (ft)</th>
+                <th>Rail N (in)</th>
+                <th>Rail S (in)</th>
+                <th class="beamCol">Beam N (in)</th>
+                <th class="beamCol">Beam S (in)</th>
+                <th>N Status</th>
+                <th>S Status</th>
+                <th>Rate N</th>
+                <th>Rate S</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+
+        <div class="chartGrid">
+          <div class="chartCard">
+            <h3>Straightness Plot</h3>
+            <div class="svgFrame">
+              <svg id="straightnessSvg" width="1100" height="360" viewBox="0 0 1100 360" role="img" aria-label="Straightness plot"></svg>
+            </div>
+          </div>
+          <div class="chartCard">
+            <h3>Eccentricity Plot</h3>
+            <div class="svgFrame">
+              <svg id="eccentricitySvg" width="1100" height="360" viewBox="0 0 1100 360" role="img" aria-label="Eccentricity plot"></svg>
+            </div>
+          </div>
         </div>
       </div>
     </section>
 
-    <section class="card">
-      <h2>Results</h2>
-
-      <div id="summary" class="summary">No check run yet.</div>
-
-      <div class="actions split">
-        <button id="exportPdf" class="btn secondary" type="button">Export Results to PDF</button>
+    <section class="band">
+      <div class="sectionHead">
+        <div>
+          <div class="sectionEyebrow">Step 4</div>
+          <h2>Compliance Results and Guidance</h2>
+        </div>
       </div>
 
-      <div class="tableWrap">
-        <table id="resultTable" aria-label="Compliance results">
-          <thead>
-            <tr>
-              <th>Check</th>
-              <th>Measured</th>
-              <th>Allowed</th>
-              <th>Status</th>
-              <th>Reference</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
+      <div class="panel resultsPanel">
+        <div id="summary" class="summaryCard">No check run yet.</div>
 
-      <div id="suggestions" class="suggestions">
-        <h3>Engineering Adjustment Suggestions</h3>
-        <ul id="suggestionList">
-          <li>Run a compliance check to generate adjustment guidance.</li>
-        </ul>
+        <div class="actions actionsWide resultsActions">
+          <button id="exportPdf" class="btn secondary" type="button">Export Results to PDF</button>
+        </div>
+
+        <div class="highlightGrid" id="highlightGrid"></div>
+
+        <div class="tableShell">
+          <table id="resultTable" aria-label="Compliance results">
+            <thead>
+              <tr>
+                <th>Check</th>
+                <th>Measured</th>
+                <th>Allowed</th>
+                <th>Status</th>
+                <th>Reference</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+
+        <div id="suggestions" class="suggestionsPanel">
+          <h3>Engineering Adjustment Suggestions</h3>
+          <ul id="suggestionList">
+            <li>Run a compliance check to generate adjustment guidance.</li>
+          </ul>
+        </div>
       </div>
     </section>
 
     <footer class="footnote">
-      <strong>Important:</strong> Field aid only. Validate limits against the latest CMAA 70 / 74, TR-13, and project specs.
+      <strong>Important:</strong> Field aid only. Validate limits against the latest CMAA 70 / 74,
+      AIST TR-13, and project specifications before final release.
     </footer>
-
   </main>
 
   <script src="./app.js"></script>
-  <script>
-    if ("serviceWorker" in navigator) {
-      window.addEventListener("load", () => {
-        navigator.serviceWorker.register("./sw.js").catch(console.error);
-      });
-    }
-  </script>
 </body>
 </html>
