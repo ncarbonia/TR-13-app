@@ -3,8 +3,8 @@
   "short_name": "BGS Survey",
   "start_url": "./",
   "display": "standalone",
-  "background_color": "#eef3f0",
-  "theme_color": "#143d35",
+  "background_color": "#eef3f5",
+  "theme_color": "#132534",
   "icons": [
     {
       "src": "icon.svg",
