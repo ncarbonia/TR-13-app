@@ -46,6 +46,14 @@ const defaults = {
   stations: []
 };
 
+const workflowCopy = {
+  setup: ["Start with the project details", "Complete the required setup fields, then continue to the runway layout."],
+  layout: ["Define the runway layout", "Confirm station spacing, directions, and tolerance limits before field capture."],
+  stations: ["Capture measurements in sequence", "Work station by station, review the live checks, and mark each station complete."],
+  review: ["Resolve tolerance exceptions", "Inspect failed checks and correction guidance before preparing the handoff."],
+  report: ["Prepare the customer handoff", "Review the summary, export the station data, and print the final report."]
+};
+
 function uid() {
   return `job-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
@@ -182,6 +190,7 @@ function bindInputs() {
     input.addEventListener("input", () => {
       const job = activeJob();
       if (!job) return;
+      if (input.value.trim()) input.removeAttribute("aria-invalid");
       job[input.dataset.bind] = input.value;
       touchJob(job);
       renderJobSelect();
@@ -362,11 +371,27 @@ function renderCompletion() {
     ["Reviewed stations", job.stations.length && job.stations.every((station) => station.reviewed)],
     ["Compliance generated", results.checks.length > 0]
   ];
+  const completed = required.filter(([, ok]) => ok).length;
+  const percent = Math.round((completed / required.length) * 100);
+  $("#completionPercent").textContent = `${percent}%`;
+  $("#miniProgressBar").style.width = `${percent}%`;
   $("#completionList").innerHTML = `<div class="status-list">${required.map(([label, ok]) => `
     <div class="status-item">
       <span>${escapeHtml(label)}</span>
       <span class="status-pill ${ok ? "ok" : "warn"}">${ok ? "Ready" : "Open"}</span>
     </div>`).join("")}</div>`;
+  renderWorkflowState(job, results);
+}
+
+function renderWorkflowState(job, results) {
+  const completion = {
+    setup: Boolean(job.customer && job.facilityLocation && job.serviceBay && job.referenceSpanIn && job.runwayLengthFt),
+    layout: Boolean(job.stations.length > 1),
+    stations: Boolean(job.stations.length && job.stations.every((station) => station.reviewed)),
+    review: Boolean(results.checks.length && results.failures.length === 0),
+    report: false
+  };
+  $$(".tab").forEach((tab) => tab.classList.toggle("complete", completion[tab.dataset.tab]));
 }
 
 function renderLayoutTable() {
@@ -645,9 +670,35 @@ function copySummary() {
 }
 
 function setTab(id) {
-  $$(".tab").forEach((tab) => tab.classList.toggle("active", tab.dataset.tab === id));
+  $$(".tab").forEach((tab) => {
+    const isActive = tab.dataset.tab === id;
+    tab.classList.toggle("active", isActive);
+    if (isActive) tab.setAttribute("aria-current", "step");
+    else tab.removeAttribute("aria-current");
+  });
   $$(".tab-page").forEach((page) => page.classList.toggle("active", page.id === id));
+  const tabs = ["setup", "layout", "stations", "review", "report"];
+  const [title, hint] = workflowCopy[id] || workflowCopy.setup;
+  $("#workflowTitle").textContent = title;
+  $("#workflowHint").textContent = hint;
+  $("#workflowStepNumber").textContent = tabs.indexOf(id) + 1;
   if (id === "report") renderReport();
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function continueFromSetup() {
+  const requiredFields = ["customer", "facilityLocation", "serviceBay", "referenceSpanIn", "runwayLengthFt"];
+  const missing = requiredFields
+    .map((field) => $(`[data-bind="${field}"]`))
+    .filter((input) => !input.value.trim());
+  $$('[data-bind][aria-invalid="true"]').forEach((input) => input.removeAttribute("aria-invalid"));
+  $("#setupNotice").hidden = missing.length === 0;
+  if (missing.length) {
+    missing.forEach((input) => input.setAttribute("aria-invalid", "true"));
+    missing[0].focus();
+    return;
+  }
+  setTab("layout");
 }
 
 function attachEvents() {
@@ -776,6 +827,11 @@ function attachEvents() {
     renderAll();
     focusStation(Math.min(state.currentStationIndex + 1, job.stations.length - 1));
   });
+
+  $("#continueToLayoutButton").addEventListener("click", continueFromSetup);
+  $("#continueToStationsButton").addEventListener("click", () => setTab("stations"));
+  $("#continueToReviewButton").addEventListener("click", () => setTab("review"));
+  $("#continueToReportButton").addEventListener("click", () => setTab("report"));
 
   $$(".tab").forEach((tab) => tab.addEventListener("click", () => setTab(tab.dataset.tab)));
 
