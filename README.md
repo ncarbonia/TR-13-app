@@ -32,6 +32,8 @@ Commit the changes to `main`. GitHub Pages should update from the same URL you a
 
 All six files must sit beside each other at the repository root. If `styles.css` is missing or placed inside another folder, the app will show an on-screen deployment warning. After publishing, confirm the page has a dark navy header, orange actions, and a five-step progress rail. If it does not, hard-refresh the page and verify the file locations.
 
+For a quick Windows preview, extract the entire ZIP first and then double-click `index.html` inside the extracted `tr13-field-app` folder. The supplied `index.html` includes the full interface styling and application code, so the local preview does not depend on the browser loading separate CSS or JavaScript files. Keep the other files together for GitHub Pages installation, offline caching, and future editing.
+
 ## Field Testing Checklist
 
 1. Open the app on an iPad or tablet.
