@@ -1,10 +1,16 @@
 {
-  "name": "Big G Steel - TR-13 Crane Tolerance Checker",
-  "short_name": "Big G TR-13",
+  "name": "Big G Steel Field Survey",
+  "short_name": "BGS Survey",
   "start_url": "./",
-  "scope": "./",
   "display": "standalone",
-  "background_color": "#146bb5",
-  "theme_color": "#146bb5",
-  "description": "Field app for overhead crane installation measurements and TR-13 / CMAA tolerance checks."
+  "background_color": "#eef3f0",
+  "theme_color": "#143d35",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
 }
