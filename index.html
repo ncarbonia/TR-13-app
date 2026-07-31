@@ -3,28 +3,57 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#143d35" />
+    <meta name="theme-color" content="#132534" />
     <title>Big G Steel Field Survey App</title>
-    <link rel="manifest" href="manifest.webmanifest" />
-    <link rel="stylesheet" href="styles.css" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <style>
+      /* Critical fallback keeps the workflow usable if the deployed stylesheet is missing. */
+      * { box-sizing: border-box; }
+      body { margin: 0; background: #eef3f5; color: #182733; font-family: Arial, sans-serif; }
+      .app-header { padding: 16px 22px; background: #132534; color: #fff; display: flex; justify-content: space-between; }
+      .app-shell { display: grid; grid-template-columns: 280px 1fr; gap: 18px; padding: 18px; }
+      .job-panel { padding: 18px; background: #132534; color: #fff; }
+      .workspace { background: #fff; }
+      .workflow-heading, .tab-page { padding: 22px; }
+      .tabs { display: flex; padding: 0 22px 18px; }
+      .tab { flex: 1; }
+      .tab-page { display: none; }
+      .tab-page.active { display: grid; gap: 18px; }
+      .form-grid, .station-inputs { display: grid; grid-template-columns: repeat(4, minmax(150px, 1fr)); gap: 12px; }
+      .field { display: grid; gap: 5px; }
+      .field input, .field textarea, .field select, select { min-height: 40px; width: 100%; }
+      .asset-warning { display: none; padding: 12px 22px; background: #fdebea; color: #8d1b13; font-weight: 700; }
+      .stylesheet-error .asset-warning { display: block; }
+      @media (max-width: 820px) { .app-shell { grid-template-columns: 1fr; } .form-grid, .station-inputs { grid-template-columns: 1fr 1fr; } }
+      @media (max-width: 520px) { .form-grid, .station-inputs { grid-template-columns: 1fr; } }
+    </style>
+    <link rel="stylesheet" href="./styles.css?v=3" onerror="document.documentElement.classList.add('stylesheet-error')" />
   </head>
   <body>
+    <div class="asset-warning" role="alert">The full stylesheet did not load. Confirm that <strong>styles.css</strong> was uploaded beside <strong>index.html</strong>, then refresh.</div>
     <header class="app-header">
-      <div>
-        <p class="eyebrow">Crane & Material Handling Solutions</p>
-        <h1>Big G Steel Field Survey</h1>
+      <div class="brand-lockup">
+        <div class="brand-mark" aria-hidden="true">G</div>
+        <div>
+          <p class="eyebrow">Crane &amp; Material Handling Solutions</p>
+          <h1>Big G Steel <span>Field Survey</span></h1>
+        </div>
       </div>
       <div class="header-actions">
+        <span class="save-state"><span class="save-dot"></span>Saved on this device</span>
         <button id="installButton" class="ghost" type="button" hidden>Install</button>
         <button id="printReportButton" class="primary" type="button">Print Report</button>
       </div>
     </header>
 
     <main class="app-shell">
-      <aside class="job-panel" aria-label="Survey jobs">
+      <aside class="job-panel" aria-label="Survey job controls">
         <div class="panel-heading">
-          <h2>Survey Jobs</h2>
-          <button id="newJobButton" class="icon-button" type="button" title="New survey">+</button>
+          <div>
+            <p class="eyebrow">Current work</p>
+            <h2>Survey Job</h2>
+          </div>
+          <button id="newJobButton" class="icon-button" type="button" title="Create a new survey" aria-label="Create a new survey">+</button>
         </div>
 
         <label class="field">
@@ -32,26 +61,28 @@
           <select id="jobSelect"></select>
         </label>
 
-        <div class="job-actions">
+        <div class="job-actions three-up">
           <button id="duplicateJobButton" type="button">Duplicate</button>
-          <button id="deleteJobButton" class="danger" type="button">Delete</button>
-        </div>
-
-        <div class="job-actions">
-          <button id="exportJobButton" type="button">Export Job</button>
+          <button id="exportJobButton" type="button">Export</button>
           <label class="file-button">
-            Import Job
+            Import
             <input id="importJobInput" type="file" accept="application/json" />
           </label>
         </div>
 
+        <button id="deleteJobButton" class="text-danger" type="button">Delete this job</button>
+
         <section class="status-card">
-          <h3>Ready Check</h3>
+          <div class="status-card-heading">
+            <h3>Job readiness</h3>
+            <strong id="completionPercent">0%</strong>
+          </div>
+          <div class="mini-progress"><span id="miniProgressBar"></span></div>
           <div id="completionList"></div>
         </section>
 
-        <section class="status-card">
-          <h3>Field Shortcuts</h3>
+        <details class="field-reference">
+          <summary>Field fraction reference</summary>
           <div class="fraction-grid">
             <span>1/16 = 0.0625</span>
             <span>1/8 = 0.125</span>
@@ -63,53 +94,69 @@
             <span>3/4 = 0.750</span>
             <span>7/8 = 0.875</span>
           </div>
-        </section>
+        </details>
       </aside>
 
       <section class="workspace">
+        <div class="workflow-heading">
+          <div>
+            <p class="eyebrow">Guided workflow</p>
+            <h2 id="workflowTitle">Start with the project details</h2>
+            <p id="workflowHint">Complete the required setup fields, then continue to the runway layout.</p>
+          </div>
+          <div class="workflow-count"><strong id="workflowStepNumber">1</strong><span>of 5</span></div>
+        </div>
+
         <nav class="tabs" aria-label="Survey workflow">
-          <button class="tab active" type="button" data-tab="setup">Setup</button>
-          <button class="tab" type="button" data-tab="layout">Layout</button>
-          <button class="tab" type="button" data-tab="stations">Stations</button>
-          <button class="tab" type="button" data-tab="review">Review</button>
-          <button class="tab" type="button" data-tab="report">Report</button>
+          <button class="tab active" type="button" data-tab="setup"><span class="step-number">1</span><span class="step-copy"><strong>Setup</strong><small>Project details</small></span><span class="step-state">Current</span></button>
+          <button class="tab" type="button" data-tab="layout"><span class="step-number">2</span><span class="step-copy"><strong>Layout</strong><small>Stations &amp; limits</small></span><span class="step-state">Next</span></button>
+          <button class="tab" type="button" data-tab="stations"><span class="step-number">3</span><span class="step-copy"><strong>Capture</strong><small>Field readings</small></span><span class="step-state">Waiting</span></button>
+          <button class="tab" type="button" data-tab="review"><span class="step-number">4</span><span class="step-copy"><strong>Review</strong><small>Check tolerance</small></span><span class="step-state">Waiting</span></button>
+          <button class="tab" type="button" data-tab="report"><span class="step-number">5</span><span class="step-copy"><strong>Report</strong><small>Customer handoff</small></span><span class="step-state">Waiting</span></button>
         </nav>
 
         <section id="setup" class="tab-page active">
           <div class="section-title">
-            <p class="eyebrow">Step 1</p>
-            <h2>Project and System Data</h2>
+            <div class="section-icon" aria-hidden="true">01</div>
+            <div><p class="eyebrow">Step 1</p><h2>Project and system data</h2><p>Identify the job and define the runway before building stations.</p></div>
           </div>
 
+          <h3 class="form-section-title">Project identification</h3>
           <div class="form-grid">
-            <label class="field"><span>Customer / Owner</span><input data-bind="customer" /></label>
+            <label class="field required"><span>Customer / Owner</span><input data-bind="customer" /></label>
             <label class="field"><span>Project Name</span><input data-bind="projectName" /></label>
-            <label class="field"><span>Facility Location</span><input data-bind="facilityLocation" /></label>
-            <label class="field"><span>Service / Bay</span><input data-bind="serviceBay" /></label>
+            <label class="field required"><span>Facility Location</span><input data-bind="facilityLocation" /></label>
+            <label class="field required"><span>Service / Bay</span><input data-bind="serviceBay" /></label>
             <label class="field"><span>Survey Date</span><input data-bind="surveyDate" type="date" /></label>
             <label class="field"><span>Surveyors</span><input data-bind="surveyors" /></label>
             <label class="field"><span>Report Number</span><input data-bind="reportNumber" /></label>
             <label class="field"><span>Job Number</span><input data-bind="jobNumber" /></label>
+          </div>
+
+          <h3 class="form-section-title">Crane and runway</h3>
+          <div class="form-grid">
             <label class="field"><span>Crane Manufacturer</span><input data-bind="craneManufacturer" /></label>
             <label class="field"><span>Capacity</span><input data-bind="capacity" placeholder="40-ton" /></label>
             <label class="field"><span>Service Class</span><input data-bind="serviceClass" placeholder="E" /></label>
             <label class="field"><span>Runway Manufacturer</span><input data-bind="runwayManufacturer" /></label>
             <label class="field"><span>Rail Size</span><input data-bind="railSize" placeholder="CR171" /></label>
             <label class="field"><span>Device / Method</span><input data-bind="device" placeholder="FARO Focus S70" /></label>
-            <label class="field"><span>Reference Span (in)</span><input data-bind="referenceSpanIn" inputmode="decimal" /></label>
-            <label class="field"><span>Runway Length (ft)</span><input data-bind="runwayLengthFt" inputmode="decimal" /></label>
+            <label class="field required"><span>Reference Span (in)</span><input data-bind="referenceSpanIn" inputmode="decimal" placeholder="Required" /></label>
+            <label class="field required"><span>Runway Length (ft)</span><input data-bind="runwayLengthFt" inputmode="decimal" placeholder="Required" /></label>
           </div>
 
           <label class="field full">
             <span>Site Conditions / Customer Notes</span>
             <textarea data-bind="siteNotes" rows="4"></textarea>
           </label>
+          <p id="setupNotice" class="inline-notice" role="alert" hidden>Complete the highlighted required fields before continuing.</p>
+          <div class="step-actions"><span>Next: define stations and tolerances</span><button id="continueToLayoutButton" class="primary next-action" type="button">Continue to Layout <span aria-hidden="true">&rarr;</span></button></div>
         </section>
 
         <section id="layout" class="tab-page">
           <div class="section-title">
-            <p class="eyebrow">Step 2</p>
-            <h2>Column Layout and Tolerances</h2>
+            <div class="section-icon" aria-hidden="true">02</div>
+            <div><p class="eyebrow">Step 2</p><h2>Column layout and tolerances</h2><p>Confirm direction, spacing, and acceptance limits before capture.</p></div>
           </div>
 
           <div class="form-grid">
@@ -150,12 +197,13 @@
               <tbody id="layoutTable"></tbody>
             </table>
           </div>
+          <div class="step-actions"><span>Next: enter field measurements</span><button id="continueToStationsButton" class="primary next-action" type="button">Continue to Capture <span aria-hidden="true">&rarr;</span></button></div>
         </section>
 
         <section id="stations" class="tab-page">
           <div class="section-title">
-            <p class="eyebrow">Step 3</p>
-            <h2>Station-by-Station Capture</h2>
+            <div class="section-icon" aria-hidden="true">03</div>
+            <div><p class="eyebrow">Step 3</p><h2>Station-by-station capture</h2><p>Enter readings in sequence and mark each station reviewed.</p></div>
           </div>
 
           <div class="station-toolbar">
@@ -169,12 +217,13 @@
           </div>
 
           <div id="stationCards" class="station-cards"></div>
+          <div class="step-actions"><span>Next: inspect all tolerance checks</span><button id="continueToReviewButton" class="primary next-action" type="button">Review Results <span aria-hidden="true">&rarr;</span></button></div>
         </section>
 
         <section id="review" class="tab-page">
           <div class="section-title">
-            <p class="eyebrow">Step 4</p>
-            <h2>Compliance Review</h2>
+            <div class="section-icon" aria-hidden="true">04</div>
+            <div><p class="eyebrow">Step 4</p><h2>Compliance review</h2><p>Resolve failed checks before preparing the customer handoff.</p></div>
           </div>
 
           <div id="summaryMetrics" class="metric-grid"></div>
@@ -195,12 +244,13 @@
               <tbody id="failureTable"></tbody>
             </table>
           </div>
+          <div class="step-actions"><span>Next: prepare the customer handoff</span><button id="continueToReportButton" class="primary next-action" type="button">Build Report <span aria-hidden="true">&rarr;</span></button></div>
         </section>
 
         <section id="report" class="tab-page">
           <div class="section-title">
-            <p class="eyebrow">Step 5</p>
-            <h2>Customer Handoff</h2>
+            <div class="section-icon" aria-hidden="true">05</div>
+            <div><p class="eyebrow">Step 5</p><h2>Customer handoff</h2><p>Review the summary, export the data, and print the final report.</p></div>
           </div>
 
           <div class="toolbar">
@@ -244,6 +294,6 @@
       </article>
     </template>
 
-    <script src="app.js"></script>
+    <script src="./app.js?v=3"></script>
   </body>
 </html>
